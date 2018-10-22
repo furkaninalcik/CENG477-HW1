@@ -28,6 +28,14 @@ struct Vec3f // Is ": parser::Vec3f" necesssary?
         return Vec3f(x*d, y*d, z*d); 
     }
 
+    Vec3f operator + (Vec3f v) const { 
+        return Vec3f(x+v.x, y+v.y, z+v.z); 
+    }
+
+    Vec3f operator - (Vec3f v) const { 
+        return Vec3f(x-v.x, y-v.y, z-v.z); 
+    }
+
     Vec3f operator = (parser::Vec3f vector) const { 
         printf("Assignment! \n" );
 
@@ -64,9 +72,25 @@ class Ray{
             e = origin;
             d = direction;
         }
+        Vec3f RayVect(float t){
+
+            Vec3f v2 = Vec3f(d.x*t, d.y*t, d.z*t);
+
+            Vec3f result = Vec3f(e.x + v2.x, e.y + v2.y, e.z + v2.z );
+
+            return result;
+        }
         //~Ray();
     
 };
+
+Vec3f crossProduct(Vec3f u , Vec3f v ){
+
+    Vec3f result = Vec3f( (u.y*v.z - u.z*v.y) , (u.z*v.x - u.x*v.z) , (u.x*v.y - u.y*v.x) );
+
+    return result;
+
+}
 
 
 
@@ -87,6 +111,12 @@ int main(int argc, char* argv[])
     Vec3f e = scene.cameras[0].position; // camera position, the origin of the rays we trace
 
     Vec3f w = scene.cameras[0].gaze; // camera gaze vector in xyz coordinates
+    Vec3f v = scene.cameras[0].up; // camera gaze vector in xyz coordinates
+    Vec3f u = crossProduct(v,w); 
+
+    Vec3f s;
+    
+    float s_u,s_v;
 
     int n_x = scene.cameras[0].image_width;
     int n_y = scene.cameras[0].image_height;
@@ -108,6 +138,8 @@ int main(int argc, char* argv[])
 
 
     Vec3f m =  (-w) * distance ;  // m is the intersection point of the gazeRay and the image plane
+
+    Vec3f q = m + u*((float)l) + v*((float)t); // BE CAREFULL about type casting -> "(float)l" 
 
     
 
@@ -139,15 +171,14 @@ int main(int argc, char* argv[])
     {
         for (int j = 0; j < n_y; ++j)
         {
-            // s_u = (r – l)(i + 0.5)/n_x
-            // s_v = (t – b)(j + 0.5)/n_y
+            s_u = (r - l)*(i + 0.5)/n_x;
+            s_v = (t - b)*(j + 0.5)/n_y;
 
 
             //printf("s_u: %lf \n" , (r - l)*(i + 0.5)/n_x );
             //printf("s_v: %lf \n" , (t - b)*(j + 0.5)/n_y );
 
-
-
+            s = q + u * s_u - v * s_v;
 
             //Ray eyeRay = Ray();
 
