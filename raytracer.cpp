@@ -8,7 +8,7 @@ typedef unsigned char RGB[3];
 
 ////////////////we may want to use struct instead of class
 
-struct Vec3f : parser::Vec3f
+struct Vec3f // Is ": parser::Vec3f" necesssary?
 {
 
     float x, y, z;
@@ -33,6 +33,14 @@ struct Vec3f : parser::Vec3f
 
         return Vec3f(vector); 
     }
+
+    Vec3f operator-() const {
+        Vec3f v;
+        v.x = -x;
+        v.y = -y;
+        v.z = -z;
+        return v;
+   }
     
 };
 
@@ -74,13 +82,11 @@ int main(int argc, char* argv[])
 
     scene.loadFromXml(argv[1]);
 
-    Ray midEyeRay = Ray(scene.cameras[0].position , scene.cameras[0].gaze);
+    Ray gazeRay = Ray(scene.cameras[0].position , scene.cameras[0].gaze); // the eye ray which is perpendicular to the image plane
 
-    Vec3f e = Vec3f(scene.cameras[0].position);
-    Vec3f e2 = scene.cameras[0].position;
-    //e.x =  scene.cameras[0].position.x; // camera origin vector in xyz coordinates
+    Vec3f e = scene.cameras[0].position; // camera position, the origin of the rays we trace
 
-    Vec3f w = Vec3f(scene.cameras[0].gaze); // camera gaze vector in xyz coordinates
+    Vec3f w = scene.cameras[0].gaze; // camera gaze vector in xyz coordinates
 
     int n_x = scene.cameras[0].image_width;
     int n_y = scene.cameras[0].image_height;
@@ -100,19 +106,26 @@ int main(int argc, char* argv[])
 
     //find the coordanates of the point "q" (the point at the top-left of image plane )
 
-    printf("VECTOR M: \n");
 
-    Vec3f m =  w * distance ;  // middle point on the image plane
+    Vec3f m =  (-w) * distance ;  // m is the intersection point of the gazeRay and the image plane
 
-    printf("Vector w:  %lf ,  %lf , %lf \n", w.x, w.y, w.z );
-    printf("Vector w * distance:  %lf ,  %lf , %lf \n", m.x, m.y, m.z );
+    
+
+    /////////// VECTOR OPERATIONS TEST ///////////
+        /*
+        Vec3f testVector = Vec3f(1.2,-2.4,11.1);
+
+        int testDistance = 2;
+
+        Vec3f result = (-testVector) * testDistance;
+
+        printf("x = %lf y = %lf y = %lf \n", result.x, result.y, result.z  );
+
+        */
+        
+    /////////// VECTOR OPERATIONS TEST ///////////
 
 
-    Vec3f testV = Vec3f(1.4,2,-3.5);
-
-    testV = testV * 2;
-
-    printf("Vector testV:  %lf ,  %lf , %lf \n", testV.x, testV.y, testV.z );
 
 
 
