@@ -4,9 +4,37 @@
 
 typedef unsigned char RGB[3];
 
-using namespace parser;
+//using namespace parser;
 
 ////////////////we may want to use struct instead of class
+
+struct Vec3f : parser::Vec3f
+{
+
+    float x, y, z;
+
+    Vec3f(){
+        printf("\n empty constructor \n");
+    }
+
+    Vec3f(parser::Vec3f vector) : x(vector.x), y(vector.y), z(vector.z) {
+
+    }
+    Vec3f(float x, float y, float z) : x(x), y(y), z(z) {}
+    
+    Vec3f operator * (float d) const { 
+        printf("Distance: %lf\n", d );
+        printf("MULTIPLICATION\n");
+        return Vec3f(x*d, y*d, z*d); 
+    }
+
+    Vec3f operator = (parser::Vec3f vector) const { 
+        printf("Assignment! \n" );
+
+        return Vec3f(vector); 
+    }
+    
+};
 
 class Ray{
 
@@ -18,11 +46,11 @@ class Ray{
     public:
         
         Ray(){
-            printf("empty ray constructor\n");
+            //printf("empty ray constructor\n");
         }
         Ray(parser::Vec3f origin, parser::Vec3f direction ){
 
-            printf("ray constructor\n");
+            //printf("ray constructor\n");
 
 
             e = origin;
@@ -31,6 +59,12 @@ class Ray{
         //~Ray();
     
 };
+
+
+
+void intersection(Ray r){
+
+}
 
 
 int main(int argc, char* argv[])
@@ -42,8 +76,16 @@ int main(int argc, char* argv[])
 
     Ray midEyeRay = Ray(scene.cameras[0].position , scene.cameras[0].gaze);
 
+    Vec3f e = Vec3f(scene.cameras[0].position);
+    Vec3f e2 = scene.cameras[0].position;
+    //e.x =  scene.cameras[0].position.x; // camera origin vector in xyz coordinates
+
+    Vec3f w = Vec3f(scene.cameras[0].gaze); // camera gaze vector in xyz coordinates
+
     int n_x = scene.cameras[0].image_width;
     int n_y = scene.cameras[0].image_height;
+
+    float distance = scene.cameras[0].near_distance; 
 
     int l = scene.cameras[0].near_plane.x;
     int r = scene.cameras[0].near_plane.y;
@@ -54,7 +96,29 @@ int main(int argc, char* argv[])
     printf("height: %d \n" , n_y);
 
 
-    //Ray RayArray[800*800] ;
+    // slide -> http://saksagan.ceng.metu.edu.tr/courses/ceng477/files/pdf/week_02.pdf ------- page 13/49
+
+    //find the coordanates of the point "q" (the point at the top-left of image plane )
+
+    printf("VECTOR M: \n");
+
+    Vec3f m =  w * distance ;  // middle point on the image plane
+
+    printf("Vector w:  %lf ,  %lf , %lf \n", w.x, w.y, w.z );
+    printf("Vector w * distance:  %lf ,  %lf , %lf \n", m.x, m.y, m.z );
+
+
+    Vec3f testV = Vec3f(1.4,2,-3.5);
+
+    testV = testV * 2;
+
+    printf("Vector testV:  %lf ,  %lf , %lf \n", testV.x, testV.y, testV.z );
+
+
+
+    //find the coordanates of the point "s" (the point we look through in ray tracing)
+
+
 
     printf("test\n");
 
@@ -66,8 +130,17 @@ int main(int argc, char* argv[])
             // s_v = (t – b)(j + 0.5)/n_y
 
 
-            printf("s_u: %lf \n" , (r - l)*(i + 0.5)/n_x );
-            printf("s_v: %lf \n" , (t - b)*(j + 0.5)/n_y );
+            //printf("s_u: %lf \n" , (r - l)*(i + 0.5)/n_x );
+            //printf("s_v: %lf \n" , (t - b)*(j + 0.5)/n_y );
+
+
+
+
+            //Ray eyeRay = Ray();
+
+            intersection(Ray());
+
+
         }
     }
 
