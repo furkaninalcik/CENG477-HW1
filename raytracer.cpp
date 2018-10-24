@@ -136,9 +136,137 @@ bool intersection(Ray ray, parser::Sphere sphere, Vec3f center , float& t){
     }
 
     //Vec3f c = sphere.vertex_data[scene.center_vertex_id]; // center of the sphere
-
-
 }
+
+
+
+bool intersection(Ray ray, parser::Triangle triangle, parser::Scene scene,  float& t){
+
+    Vec3f e = ray.e; // origin 
+    Vec3f d = ray.d; // direction
+
+    Vec3f p ; // the ray-plane intersection point (may or may not be inside the triangle) 
+
+    float gama, beta; // variables for barycentric coordinates
+
+
+    Vec3f v1 = scene.vertex_data[triangle.indices.v0_id - 1];
+    Vec3f v2 = scene.vertex_data[triangle.indices.v1_id - 1];
+    Vec3f v3 = scene.vertex_data[triangle.indices.v2_id - 1];
+    /*
+    printf("VERTEX 1 : %lf , %lf  , %lf \n" , v1.x, v1.y , v1.z );
+    printf("VERTEX 2 : %lf , %lf  , %lf \n" , v2.x, v2.y , v2.z );
+    printf("VERTEX 3 : %lf , %lf  , %lf \n" , v3.x, v3.y , v3.z );
+    */
+
+
+
+
+    // calculating plane normal
+
+
+    Vec3f normalVector = crossProduct(v2-v1, v3-v2);  // BE CAREFULL ABOUT THE ORDER OF THE VERTICES
+
+    if (dotProduct(normalVector , d)  < 0.001) // if plane and ray are parallel 
+    {
+        return false;
+    }
+
+    t = (dotProduct((v1 - e),normalVector))/(dotProduct(d,normalVector)); // calculating t to find the ray-plane intersection point "p"
+
+
+    //printf("t : %lf \n" , t);
+
+    p = e + d * t;
+
+
+    //printf("TEST1\n");
+
+    /*
+    if (t <= 0.000001) // t_min
+    {
+        return false;
+    }
+    */
+
+    //printf("TEST2\n");
+
+    /////////////////////////////////////////////
+
+    //calculating the barycentric coordanates
+    
+
+    /*
+
+    https://gamedev.stackexchange.com/questions/23743/whats-the-most-efficient-way-to-find-barycentric-coordinates
+
+
+    // Compute barycentric coordinates (u, v, w) for
+    // point p with respect to triangle (a, b, c)
+    void Barycentric(Point p, Point a, Point b, Point c, float &u, float &v, float &w)
+    {
+        Vector v0 = b - a, v1 = c - a, v2 = p - a;
+        float d00 = Dot(v0, v0);
+        float d01 = Dot(v0, v1);
+        float d11 = Dot(v1, v1);
+        float d20 = Dot(v2, v0);
+        float d21 = Dot(v2, v1);
+        float denom = d00 * d11 - d01 * d01;
+        v = (d11 * d20 - d01 * d21) / denom;
+        w = (d00 * d21 - d01 * d20) / denom;
+        u = 1.0f - v - w;
+    }
+
+    */
+
+
+    //a = v1 
+    //b = v2 
+    //c = v3 
+    //v0 = v_21 
+    //v1 = v_31 
+    //v2 = v_p1 
+
+    Vec3f v_21 = v2-v1;
+    Vec3f v_31 = v3-v1;
+    Vec3f v_p1 = p-v1;
+
+    float p1 = dotProduct(v_21, v_21);
+    float p2 = dotProduct(v_21, v_31);
+    float p3 = dotProduct(v_31, v_31);
+    float p4 = dotProduct(v_p1, v_21);
+    float p5 = dotProduct(v_p1, v_31);
+
+
+    float den = p1*p3 - p2*p2; // denominator
+
+    gama = (p3*p4 - p2*p5) / den; // GAMA OR BETA ???
+
+    //printf("GAMA : %lf \n", gama);
+
+    if (gama < 0 || gama > 1 )
+    {
+        return false;
+    }
+
+    //printf("TEST3\n");
+
+
+    beta = (p1*p5 - p2*p4) / den; // BETA OR GAMA ???
+
+    if (beta < 0 || beta > 1-gama)
+    {
+        return false;
+    }
+
+    printf("TEST4\n");
+
+
+
+    return true;
+}
+
+
 
 
 
@@ -190,6 +318,8 @@ int main(int argc, char* argv[])
     
 
     /////////// VECTOR OPERATIONS TEST ///////////
+      
+    /*
         
         Vec3f testVector  = Vec3f(1.2,-2.4,11.1);
         Vec3f testVector2 = Vec3f(0.2,0.4,1.1);
@@ -203,7 +333,7 @@ int main(int argc, char* argv[])
         printf("x = %lf y = %lf z = %lf \n", result1.x, result1.y, result1.z  );
         printf("x = %lf y = %lf z = %lf \n", result.x, result.y, result.z  );
 
-        
+    */
         
     /////////// VECTOR OPERATIONS TEST ///////////
 
@@ -271,16 +401,75 @@ int main(int argc, char* argv[])
 
             float t;
 
-            if (intersection(eyeRay, spheres[0], scene.vertex_data[spheres[0].center_vertex_id-1] ,t )){
-                image[index++] = 255;
-                image[index++] = 255;
-                image[index++] = 255;
+            bool sphereIntersection = false;
+            bool triangleIntersection = false;
+
+            for (int i = 0; i < spheres.size(); ++i)
+            {
+                if (intersection(eyeRay, spheres[i], scene.vertex_data[spheres[i].center_vertex_id-1] ,t )){
+                    image[index++] = 255;
+                    image[index++] = 85;
+                    image[index++] = 25;
+                    sphereIntersection = true;
+                    break;
+                }
+                
             }
-            else{
+            for (int i = 0; i < triangles.size(); ++i)
+            {
+                if(!sphereIntersection && intersection(eyeRay, triangles[i], scene ,t )){
+
+                    printf("Triangle is hit!\n");
+                    image[index++] = 15;
+                    image[index++] = 115;
+                    image[index++] = 70;
+                    triangleIntersection = true;
+                    break;
+                }
+            }
+
+
+/*
+            meshes:
+                mesh1:
+                    face1:
+                        v1,v2,v3
+                    face2:
+                        v1,v2,v3
+                    face3:
+                        v1,v2,v3
+                mesh2:
+                    face1:
+                        v1,v2,v3
+                mesh3:
+                    face1:
+                        v1,v2,v3
+                    face2:
+                        v1,v2,v3
+
+*/
+
+
+            for (int i = 0; i < scene.meshes.size(); ++i)
+            {
+                for (int j = 0; j < scene.meshes[i].faces.size(); ++j)
+                {
+                    intersection(eyeRay, scene.meshes[i].faces[j], scene ,t ); 
+                }
+            }
+
+
+            if (!sphereIntersection && !triangleIntersection )
+            {
                 image[index++] = 20;
                 image[index++] = 20;
                 image[index++] = 20;
             } 
+
+            printf("INDEX : %d \n " , index);
+
+
+
 
         }
     }
