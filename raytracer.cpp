@@ -140,8 +140,8 @@ bool intersection(Ray ray, parser::Sphere sphere, Vec3f center , float& t){
         float x0 = (-b - sqrt(discriminant))/(2*a); // one of the real roots of the equation
         float x1 = (-b + sqrt(discriminant))/(2*a); // one of the real roots of the equation
         t = (x0 < x1) ? x0 : x1;
-        printf("t1 %lf \n", x0 );
-        printf("t2 %lf \n", x1 );
+        //printf("t1 %lf \n", x0 );
+        //printf("t2 %lf \n", x1 );
         return true;        
     }
 
@@ -422,23 +422,12 @@ int main(int argc, char* argv[])
 
 
                     Vec3f pointOnTheSphere  = eyeRay.e + eyeRay.d*t; 
-
-                    printf("Point on the sphere : %lf %lf %lf\n", pointOnTheSphere.x,pointOnTheSphere.y,pointOnTheSphere.z );
-
-
-
-                    printf("T: %lf \n", t );
-
                     Vec3f sphereSurfaceNormal = (pointOnTheSphere - center) * (1.0 / spheres[i].radius);
-
-                    printf("radius: %lf \n", spheres[i].radius );
-
 
 
                     Vec3f lightPosition  = scene.point_lights[0].position;
                     Vec3f lightIntensity = scene.point_lights[0].intensity;
 
-                    printf("Position: %lf %lf %lf\n", lightPosition.x,lightPosition.y,lightPosition.z );
 
                     Vec3f vectorToLight = lightPosition - pointOnTheSphere ; 
 
@@ -451,15 +440,8 @@ int main(int argc, char* argv[])
 
                     Vec3f diffuseShadingParams = scene.materials[spheres[i].material_id-1].diffuse; // for RGB values -> between 0 and 1
 
-
                     Vec3f irradiance = lightIntensity * (1.0/(lightDistance*lightDistance));
 
-
-                    printf("cosTheta: %lf \n " , cosTheta);
-                    printf("lightDistance: %lf \n " , lightDistance);
-                    printf("irradiance red: %lf \n " , irradiance.x);
-                    printf("irradiance green: %lf \n " , irradiance.y);
-                    printf("irradiance blue: %lf \n " , irradiance.z);
 
                     float diffuseShadingRed   = diffuseShadingParams.x * cosTheta * irradiance.x; 
                     float diffuseShadingGreen = diffuseShadingParams.y * cosTheta * irradiance.y; 
@@ -469,10 +451,33 @@ int main(int argc, char* argv[])
 
                     Vec3f diffuseShading2 = clamp(diffuseShading);
 
+                    Vec3f halfWayVector = ((-eyeRay.d).normalize() + vectorToLight.normalize()).normalize();
 
-                    image[index++] = diffuseShading2.x;
-                    image[index++] = diffuseShading2.y;
-                    image[index++] = diffuseShading2.z;
+                    float cosAlpha = dotProduct(halfWayVector.normalize(), sphereSurfaceNormal.normalize()); // for specular shading
+
+                    cosAlpha = (cosAlpha < 0) ? 0 : cosAlpha;
+
+
+                    Vec3f specularShadingParams = scene.materials[spheres[i].material_id-1].specular; // for RGB values -> between 0 and 1
+                    float phong_exponent = scene.materials[spheres[i].material_id-1].phong_exponent; // for RGB values -> between 0 and 1
+                    float cosAlphaWithPhong = pow(cosAlpha,phong_exponent); 
+                    //printf("Specular : %lf %lf %lf  \n", specularShadingParams.x, specularShadingParams.y, specularShadingParams.z   );
+
+
+                    float specularShadingRed   = specularShadingParams.x * cosAlphaWithPhong * irradiance.x; 
+                    float specularShadingGreen = specularShadingParams.y * cosAlphaWithPhong * irradiance.y; 
+                    float specularShadingBlue  = specularShadingParams.z * cosAlphaWithPhong * irradiance.z; 
+
+                    Vec3f specularShading = Vec3f(specularShadingRed,specularShadingGreen,specularShadingBlue);
+
+
+                    Vec3f specularShading2 = clamp(specularShading);
+
+                    Vec3f diffuseAndSpecular = clamp(diffuseShading+specularShading);
+
+                    image[index++] = diffuseAndSpecular.x;
+                    image[index++] = diffuseAndSpecular.y;
+                    image[index++] = diffuseAndSpecular.z;
                     sphereIntersection = true;
 
                     break;
@@ -483,7 +488,7 @@ int main(int argc, char* argv[])
             {
                 if(!sphereIntersection && intersection(eyeRay, triangles[i].indices, scene ,t )){
 
-                    printf("Triangle is hit!\n");
+                    //printf("Triangle is hit!\n");
                     image[index++] = 15;
                     image[index++] = 115;
                     image[index++] = 70;
