@@ -56,7 +56,7 @@ struct Vec3f // Is ": parser::Vec3f" necesssary?
    }
 
     Vec3f normalize() const {
-        double norm = sqrt(x*x + y*y + z*z);
+        float norm = sqrt(x*x + y*y + z*z);
         return Vec3f(x/norm,y/norm,z/norm);
     }
     
@@ -111,6 +111,14 @@ float dotProduct(Vec3f u , Vec3f v ){
 
 }
 
+Vec3f clamp(Vec3f vector) {
+  Vec3f v ;
+  v.x = (vector.x > 255) ? 255 : (vector.x < 0) ? 0 : vector.x;
+  v.y = (vector.y > 255) ? 255 : (vector.y < 0) ? 0 : vector.y;
+  v.z = (vector.z > 255) ? 255 : (vector.z < 0) ? 0 : vector.z;
+  return v;
+}
+
 bool intersection(Ray ray, parser::Sphere sphere, Vec3f center , float& t){
 
     Vec3f e = ray.e;
@@ -129,9 +137,11 @@ bool intersection(Ray ray, parser::Sphere sphere, Vec3f center , float& t){
         return false;
     }
     else{
-        float x0 = -b - sqrt(discriminant); // one of the real roots of the equation
-        float x1 = -b + sqrt(discriminant); // one of the real roots of the equation
+        float x0 = (-b - sqrt(discriminant))/(2*a); // one of the real roots of the equation
+        float x1 = (-b + sqrt(discriminant))/(2*a); // one of the real roots of the equation
         t = (x0 < x1) ? x0 : x1;
+        printf("t1 %lf \n", x0 );
+        printf("t2 %lf \n", x1 );
         return true;        
     }
 
@@ -140,7 +150,7 @@ bool intersection(Ray ray, parser::Sphere sphere, Vec3f center , float& t){
 
 
 
-bool intersection(Ray ray, parser::Triangle triangle, parser::Scene scene,  float& t){
+bool intersection(Ray ray, parser::Face face, parser::Scene scene,  float& t){
 
     Vec3f e = ray.e; // origin 
     Vec3f d = ray.d; // direction
@@ -150,9 +160,9 @@ bool intersection(Ray ray, parser::Triangle triangle, parser::Scene scene,  floa
     float gama, beta; // variables for barycentric coordinates
 
 
-    Vec3f v1 = scene.vertex_data[triangle.indices.v0_id - 1];
-    Vec3f v2 = scene.vertex_data[triangle.indices.v1_id - 1];
-    Vec3f v3 = scene.vertex_data[triangle.indices.v2_id - 1];
+    Vec3f v1 = scene.vertex_data[face.v0_id - 1];
+    Vec3f v2 = scene.vertex_data[face.v1_id - 1];
+    Vec3f v3 = scene.vertex_data[face.v2_id - 1];
     /*
     printf("VERTEX 1 : %lf , %lf  , %lf \n" , v1.x, v1.y , v1.z );
     printf("VERTEX 2 : %lf , %lf  , %lf \n" , v2.x, v2.y , v2.z );
@@ -165,7 +175,7 @@ bool intersection(Ray ray, parser::Triangle triangle, parser::Scene scene,  floa
     // calculating plane normal
 
 
-    Vec3f normalVector = crossProduct(v2-v1, v3-v2);  // BE CAREFULL ABOUT THE ORDER OF THE VERTICES
+    Vec3f normalVector = crossProduct( v3-v2 , v2-v1);  // BE CAREFULL ABOUT THE ORDER OF THE VERTICES
 
     if (dotProduct(normalVector , d)  < 0.001) // if plane and ray are parallel 
     {
@@ -259,7 +269,7 @@ bool intersection(Ray ray, parser::Triangle triangle, parser::Scene scene,  floa
         return false;
     }
 
-    printf("TEST4\n");
+    //printf("TEST4\n");
 
 
 
@@ -282,8 +292,8 @@ int main(int argc, char* argv[])
     Vec3f e = scene.cameras[0].position; // camera position, the origin of the rays we trace
 
     Vec3f w = scene.cameras[0].gaze; // camera gaze vector in xyz coordinates
-    Vec3f v = scene.cameras[0].up; // camera gaze vector in xyz coordinates
-    Vec3f u = crossProduct(v,w); 
+    Vec3f v = scene.cameras[0].up; // camera up vector in xyz coordinates
+    Vec3f u = crossProduct(v,-w); 
 
     printf("u vector: %lf , %lf , %lf\n" , u.x , u.y , u.z );
 
@@ -311,7 +321,7 @@ int main(int argc, char* argv[])
     //find the coordanates of the point "q" (the point at the top-left of image plane )
 
 
-    Vec3f m = e + (-w) * distance ;  // m is the intersection point of the gazeRay and the image plane
+    Vec3f m = e + (w) * distance ;  // m is the intersection point of the gazeRay and the image plane
 
     Vec3f q = m + u*l + v*t; //  
 
@@ -391,7 +401,7 @@ int main(int argc, char* argv[])
             s = q + (u * s_u) - (v * s_v);
 
 
-            eyeRay = Ray(e, s-e);
+            eyeRay = Ray(e, (s-e).normalize());
 
 
             std::vector<parser::Mesh>     meshes    = scene.meshes;
@@ -403,21 +413,75 @@ int main(int argc, char* argv[])
 
             bool sphereIntersection = false;
             bool triangleIntersection = false;
+            bool faceIntersection = false;
 
             for (int i = 0; i < spheres.size(); ++i)
             {
-                if (intersection(eyeRay, spheres[i], scene.vertex_data[spheres[i].center_vertex_id-1] ,t )){
-                    image[index++] = 255;
-                    image[index++] = 85;
-                    image[index++] = 25;
+                Vec3f center = scene.vertex_data[spheres[i].center_vertex_id-1]; // center of the sphere 
+                if (intersection(eyeRay, spheres[i], center ,t )){
+
+
+                    Vec3f pointOnTheSphere  = eyeRay.e + eyeRay.d*t; 
+
+                    printf("Point on the sphere : %lf %lf %lf\n", pointOnTheSphere.x,pointOnTheSphere.y,pointOnTheSphere.z );
+
+
+
+                    printf("T: %lf \n", t );
+
+                    Vec3f sphereSurfaceNormal = (pointOnTheSphere - center) * (1.0 / spheres[i].radius);
+
+                    printf("radius: %lf \n", spheres[i].radius );
+
+
+
+                    Vec3f lightPosition  = scene.point_lights[0].position;
+                    Vec3f lightIntensity = scene.point_lights[0].intensity;
+
+                    printf("Position: %lf %lf %lf\n", lightPosition.x,lightPosition.y,lightPosition.z );
+
+                    Vec3f vectorToLight = lightPosition - pointOnTheSphere ; 
+
+                    float lightDistance = sqrt(dotProduct(vectorToLight,vectorToLight));
+
+                    float cosTheta = dotProduct(vectorToLight.normalize(), sphereSurfaceNormal.normalize());
+
+                    cosTheta = (cosTheta < 0) ? 0 : cosTheta;
+                    
+
+                    Vec3f diffuseShadingParams = scene.materials[spheres[i].material_id-1].diffuse; // for RGB values -> between 0 and 1
+
+
+                    Vec3f irradiance = lightIntensity * (1.0/(lightDistance*lightDistance));
+
+
+                    printf("cosTheta: %lf \n " , cosTheta);
+                    printf("lightDistance: %lf \n " , lightDistance);
+                    printf("irradiance red: %lf \n " , irradiance.x);
+                    printf("irradiance green: %lf \n " , irradiance.y);
+                    printf("irradiance blue: %lf \n " , irradiance.z);
+
+                    float diffuseShadingRed   = diffuseShadingParams.x * cosTheta * irradiance.x; 
+                    float diffuseShadingGreen = diffuseShadingParams.y * cosTheta * irradiance.y; 
+                    float diffuseShadingBlue  = diffuseShadingParams.z * cosTheta * irradiance.z; 
+
+                    Vec3f diffuseShading = Vec3f(diffuseShadingRed,diffuseShadingGreen,diffuseShadingBlue);
+
+                    Vec3f diffuseShading2 = clamp(diffuseShading);
+
+
+                    image[index++] = diffuseShading2.x;
+                    image[index++] = diffuseShading2.y;
+                    image[index++] = diffuseShading2.z;
                     sphereIntersection = true;
+
                     break;
                 }
                 
             }
             for (int i = 0; i < triangles.size(); ++i)
             {
-                if(!sphereIntersection && intersection(eyeRay, triangles[i], scene ,t )){
+                if(!sphereIntersection && intersection(eyeRay, triangles[i].indices, scene ,t )){
 
                     printf("Triangle is hit!\n");
                     image[index++] = 15;
@@ -429,51 +493,38 @@ int main(int argc, char* argv[])
             }
 
 
-/*
-            meshes:
-                mesh1:
-                    face1:
-                        v1,v2,v3
-                    face2:
-                        v1,v2,v3
-                    face3:
-                        v1,v2,v3
-                mesh2:
-                    face1:
-                        v1,v2,v3
-                mesh3:
-                    face1:
-                        v1,v2,v3
-                    face2:
-                        v1,v2,v3
-
-*/
-
-
             for (int i = 0; i < scene.meshes.size(); ++i)
             {
                 for (int j = 0; j < scene.meshes[i].faces.size(); ++j)
                 {
-                    intersection(eyeRay, scene.meshes[i].faces[j], scene ,t ); 
+                    if (!sphereIntersection && !triangleIntersection && intersection(eyeRay, scene.meshes[i].faces[j], scene ,t ))
+                    {
+                        image[index++] = 5;
+                        image[index++] = 215;
+                        image[index++] = 2;
+                        faceIntersection = true;
+                        break;
+                    }
+                     
                 }
             }
 
 
-            if (!sphereIntersection && !triangleIntersection )
+            if (!sphereIntersection && !triangleIntersection && !faceIntersection)
             {
                 image[index++] = 20;
                 image[index++] = 20;
                 image[index++] = 20;
             } 
 
-            printf("INDEX : %d \n " , index);
+            //printf("INDEX : %d \n " , index);
 
 
 
 
         }
     }
-
+/*
     printf("TOP LEFT  :\n"    );
     printf("s_u: %lf \n" , (r - l)*(0 + 0.5)/n_x );
     printf("s_v: %lf \n" , (t - b)*(0 + 0.5)/n_y );
@@ -490,7 +541,7 @@ int main(int argc, char* argv[])
     printf("n_x: %d \n"  , n_x);
     printf("n_y: %d \n"  , n_y);
 
-
+*/
     // The code below creates a test pattern and writes
     // it to a PPM file to demonstrate the usage of the
     // ppm_write function.
