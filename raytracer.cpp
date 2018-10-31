@@ -150,7 +150,7 @@ bool intersection(Ray ray, parser::Sphere sphere, Vec3f center , float& t){
 
 
 
-bool intersection(Ray ray, parser::Face face, parser::Scene scene,  float& t){
+bool intersection(Ray ray, parser::Face face, parser::Scene scene,  float& t, Vec3f& surfaceNormal){
 
     Vec3f e = ray.e; // origin 
     Vec3f d = ray.d; // direction
@@ -176,8 +176,9 @@ bool intersection(Ray ray, parser::Face face, parser::Scene scene,  float& t){
 
 
     Vec3f normalVector = crossProduct( v3-v2 , v2-v1);  // BE CAREFULL ABOUT THE ORDER OF THE VERTICES
+    surfaceNormal = normalVector; // TO BE USED BY SHADING PART OF THE CODE
 
-    if (dotProduct(normalVector , d)  < 0.001) // if plane and ray are parallel 
+    if (dotProduct(normalVector , d)  < 0.000001) // if plane and ray are parallel 
     {
         return false;
     }
@@ -384,12 +385,15 @@ int main(int argc, char* argv[])
 
     int index = 0;
 
+    Vec3f surfaceNormal; // "intersection" function will assign this variable 
+
+
     for (int i = 0; i < n_x; ++i)
     {
         for (int j = 0; j < n_y; ++j)
         {
-            s_u = (r - l)*(i + 0.5)/n_x;
-            s_v = (t - b)*(j + 0.5)/n_y;
+            s_u = (r - l)*(j + 0.5)/n_x;
+            s_v = (t - b)*(i + 0.5)/n_y;
 
             //printf(" s_u : %lf\n", s_u  );
             //printf(" s_v : %lf\n", s_v  );
@@ -415,6 +419,10 @@ int main(int argc, char* argv[])
             bool triangleIntersection = false;
             bool faceIntersection = false;
 
+
+            Vec3f lightPosition  = scene.point_lights[0].position; // for testing 
+            Vec3f lightIntensity = scene.point_lights[0].intensity; // for testing 
+
             for (int i = 0; i < spheres.size(); ++i)
             {
                 Vec3f center = scene.vertex_data[spheres[i].center_vertex_id-1]; // center of the sphere 
@@ -425,8 +433,7 @@ int main(int argc, char* argv[])
                     Vec3f sphereSurfaceNormal = (pointOnTheSphere - center) * (1.0 / spheres[i].radius);
 
 
-                    Vec3f lightPosition  = scene.point_lights[0].position;
-                    Vec3f lightIntensity = scene.point_lights[0].intensity;
+
 
 
                     Vec3f vectorToLight = lightPosition - pointOnTheSphere ; 
@@ -449,7 +456,6 @@ int main(int argc, char* argv[])
 
                     Vec3f diffuseShading = Vec3f(diffuseShadingRed,diffuseShadingGreen,diffuseShadingBlue);
 
-                    Vec3f diffuseShading2 = clamp(diffuseShading);
 
                     Vec3f halfWayVector = ((-eyeRay.d).normalize() + vectorToLight.normalize()).normalize();
 
@@ -471,7 +477,6 @@ int main(int argc, char* argv[])
                     Vec3f specularShading = Vec3f(specularShadingRed,specularShadingGreen,specularShadingBlue);
 
 
-                    Vec3f specularShading2 = clamp(specularShading);
 
                     Vec3f diffuseAndSpecular = clamp(diffuseShading+specularShading);
 
@@ -486,9 +491,16 @@ int main(int argc, char* argv[])
             }
             for (int i = 0; i < triangles.size(); ++i)
             {
-                if(!sphereIntersection && intersection(eyeRay, triangles[i].indices, scene ,t )){
+                if(!sphereIntersection && intersection(eyeRay, triangles[i].indices, scene ,t , surfaceNormal)){
 
                     //printf("Triangle is hit!\n");
+
+                    Vec3f pointOnTheTriangle    = eyeRay.e + eyeRay.d*t; 
+
+                    Vec3f vectorToLight = lightPosition - pointOnTheTriangle ; 
+
+                    // CONTINUE WITH THE TRIANGLE SHADING
+
                     image[index++] = 15;
                     image[index++] = 115;
                     image[index++] = 70;
@@ -497,18 +509,91 @@ int main(int argc, char* argv[])
                 }
             }
 
+            bool breakLoop = false;
 
             for (int i = 0; i < scene.meshes.size(); ++i)
             {
+                if(breakLoop == true){
+                    break;
+                }
                 for (int j = 0; j < scene.meshes[i].faces.size(); ++j)
                 {
-                    if (!sphereIntersection && !triangleIntersection && intersection(eyeRay, scene.meshes[i].faces[j], scene ,t ))
+                    if (!sphereIntersection && !triangleIntersection && intersection(eyeRay, scene.meshes[i].faces[j], scene ,t , surfaceNormal))
                     {
-                        image[index++] = 5;
-                        image[index++] = 215;
-                        image[index++] = 2;
+
+
+
+
+                        Vec3f pointOnTheMesh    = eyeRay.e + eyeRay.d*t; 
+
+                        Vec3f vectorToLight = -(lightPosition - pointOnTheMesh) ;
+
+
+                        float lightDistance = sqrt(dotProduct(vectorToLight,vectorToLight));
+
+                        float cosTheta = dotProduct(vectorToLight.normalize(), surfaceNormal.normalize());
+
+                        //printf("COSTHETA: %lf \n", cosTheta );
+
+
+                        cosTheta = (cosTheta < 0) ? 0 : cosTheta;
+                        
+
+                        Vec3f diffuseShadingParams = scene.materials[meshes[i].material_id-1].diffuse; // for RGB values -> between 0 and 1
+
+
+                        //printf("Diffuse parameters: %lf , %lf , %lf \n", diffuseShadingParams.x, diffuseShadingParams.y, diffuseShadingParams.z );
+
+                        Vec3f irradiance = lightIntensity * (1.0/(lightDistance*lightDistance));
+
+
+                        float diffuseShadingRed   = diffuseShadingParams.x * cosTheta * irradiance.x; 
+                        float diffuseShadingGreen = diffuseShadingParams.y * cosTheta * irradiance.y; 
+                        float diffuseShadingBlue  = diffuseShadingParams.z * cosTheta * irradiance.z; 
+
+                        Vec3f diffuseShading = Vec3f(diffuseShadingRed,diffuseShadingGreen,diffuseShadingBlue);
+
+
+                        //printf("Diffuse: %lf , %lf , %lf \n", diffuseShading.x, diffuseShading.y, diffuseShading.z );
+
+
+                        Vec3f halfWayVector = ((-eyeRay.d).normalize() + vectorToLight.normalize()).normalize();
+
+                        float cosAlpha = dotProduct(halfWayVector.normalize(), surfaceNormal.normalize()); // for specular shading
+
+                        cosAlpha = (cosAlpha < 0) ? 0 : cosAlpha;
+
+
+                        Vec3f specularShadingParams = scene.materials[meshes[i].material_id-1].specular; // for RGB values -> between 0 and 1
+                        float phong_exponent = scene.materials[meshes[i].material_id-1].phong_exponent; // for RGB values -> between 0 and 1
+                        float cosAlphaWithPhong = pow(cosAlpha,phong_exponent); 
+                        //printf("Specular : %lf %lf %lf  \n", specularShadingParams.x, specularShadingParams.y, specularShadingParams.z   );
+
+
+                        float specularShadingRed   = specularShadingParams.x * cosAlphaWithPhong * irradiance.x; 
+                        float specularShadingGreen = specularShadingParams.y * cosAlphaWithPhong * irradiance.y; 
+                        float specularShadingBlue  = specularShadingParams.z * cosAlphaWithPhong * irradiance.z; 
+
+                        Vec3f specularShading = Vec3f(specularShadingRed,specularShadingGreen,specularShadingBlue);
+
+                        //printf("Specular: %lf , %lf , %lf \n", specularShading.x, specularShading.y, specularShading.z );
+
+
+                        Vec3f diffuseAndSpecular = clamp(diffuseShading+specularShading);
+
+
+
+                        image[index++] = diffuseAndSpecular.x;
+                        image[index++] = diffuseAndSpecular.y;
+                        image[index++] = diffuseAndSpecular.z;
+
+                        printf("FACE INTERSECTION! \n");
+
                         faceIntersection = true;
+                        breakLoop = true;
                         break;
+
+                        
                     }
                      
                 }
@@ -517,9 +602,9 @@ int main(int argc, char* argv[])
 
             if (!sphereIntersection && !triangleIntersection && !faceIntersection)
             {
-                image[index++] = 20;
-                image[index++] = 20;
-                image[index++] = 20;
+                image[index++] = scene.background_color.x;
+                image[index++] = scene.background_color.y;
+                image[index++] = scene.background_color.z;
             } 
 
             //printf("INDEX : %d \n " , index);
