@@ -272,14 +272,44 @@ bool intersection(Ray ray, parser::Face face, parser::Scene scene,  float& t, Ve
 
 
 
+Vec3f mirrorShader(){
 
 
-void sphereShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPosition, Vec3f& lightIntensity,  std::vector<parser::Sphere>& spheres, unsigned char* image , bool& sphereIntersection, int& index ){
+
+
+
+
+}
+
+
+
+Vec3f sphereShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPosition, Vec3f& lightIntensity,  std::vector<parser::Sphere>& spheres, unsigned char* image , bool& sphereIntersection, int& index ){
 
     for (int i = 0; i < spheres.size(); ++i)
     {
         Vec3f center = scene.vertex_data[spheres[i].center_vertex_id-1]; // center of the sphere 
         if (intersection(eyeRay, spheres[i], center ,t )){
+
+
+
+            //////////////////////////////////// AMBIENT SHADING
+
+            float ambientRadienceRed   = scene.ambient_light.x;
+            float ambientRadienceGreen = scene.ambient_light.y;
+            float ambientRadienceBlue  = scene.ambient_light.z;
+
+
+            Vec3f ambientShadingParams = scene.materials[spheres[i].material_id-1].ambient; // for RGB values -> between 0 and 1
+
+
+            float ambientShadingRed   = ambientShadingParams.x * ambientRadienceRed; 
+            float ambientShadingGreen = ambientShadingParams.y * ambientRadienceGreen; 
+            float ambientShadingBlue  = ambientShadingParams.z * ambientRadienceBlue; 
+
+            Vec3f ambientShading = Vec3f(ambientShadingRed,ambientShadingGreen,ambientShadingBlue);
+
+            //////////////////////////////////// AMBIENT SHADING
+
 
 
             Vec3f pointOnTheSphere  = eyeRay.e + eyeRay.d*t; 
@@ -289,8 +319,6 @@ void sphereShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPosi
 
 
             Vec3f sphereSurfaceNormal = (pointOnTheSphere - center) * (1.0 / spheres[i].radius);
-
-
 
 
             Vec3f vectorToLight = lightPosition - pointOnTheSphere ; 
@@ -335,12 +363,47 @@ void sphereShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPosi
 
 
 
-            Vec3f diffuseAndSpecular = clamp(diffuseShading+specularShading);
 
-            image[index++] = diffuseAndSpecular.x;
-            image[index++] = diffuseAndSpecular.y;
-            image[index++] = diffuseAndSpecular.z;
+            //////////////////////////////////// MIRROR SHADING
+            
+
+            Vec3f mirrorShadingParams = scene.materials[spheres[i].material_id-1].mirror; // for RGB values -> between 0 and 1
+
+            
+            if (mirrorShadingParams.x != 0 && mirrorShadingParams.y != 0 && mirrorShadingParams.z != 0 )
+            {
+
+
+                mirrorShader();
+
+
+
+
+
+            }
+
+
+
+
+
+
+
+            //////////////////////////////////// MIRROR SHADING
+
+
+
+
+
+            Vec3f sphereShade = clamp(ambientShading + diffuseShading + specularShading);
+
+
+            //image[index++] = diffuseAndSpecular.x;
+            //image[index++] = diffuseAndSpecular.y;
+            //image[index++] = diffuseAndSpecular.z;
             sphereIntersection = true;
+
+            return sphereShade;
+
 
             break;
         }
@@ -348,7 +411,7 @@ void sphereShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPosi
     }
 }
 
-void triangleShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPosition, Vec3f& lightIntensity,  std::vector<parser::Triangle>& triangles, unsigned char* image , bool& sphereIntersection, bool& triangleIntersection, int& index, Vec3f& surfaceNormal){
+Vec3f triangleShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPosition, Vec3f& lightIntensity,  std::vector<parser::Triangle>& triangles, unsigned char* image , bool& sphereIntersection, bool& triangleIntersection, int& index, Vec3f& surfaceNormal){
     
     for (int i = 0; i < triangles.size(); ++i)
     {
@@ -362,10 +425,14 @@ void triangleShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPo
 
             // CONTINUE WITH THE TRIANGLE SHADING
 
-            image[index++] = 15;
-            image[index++] = 115;
-            image[index++] = 70;
+
+
+            //image[index++] = 15;
+            //image[index++] = 115;
+            //image[index++] = 70;
             triangleIntersection = true;
+            return Vec3f(20.0, 17.0, 190.0);
+
             break;
         }
     }
@@ -400,9 +467,12 @@ bool isUnderShadow(Vec3f& pointOnTheMesh, Vec3f& vectorToLight, parser::Scene& s
 }
 
 
-void faceShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPosition, Vec3f& lightIntensity,  std::vector<parser::Mesh>& meshes, unsigned char* image , bool& sphereIntersection, bool& triangleIntersection, bool& faceIntersection, int& index, Vec3f& surfaceNormal){
+Vec3f faceShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPosition, Vec3f& lightIntensity,  std::vector<parser::Mesh>& meshes, unsigned char* image , bool& sphereIntersection, bool& triangleIntersection, bool& faceIntersection, int& index, Vec3f& surfaceNormal){
     
     bool breakLoop = false;
+
+
+    Vec3f faceShade = Vec3f(0,0,0);
 
     for (int i = 0; i < scene.meshes.size(); ++i)
     {
@@ -417,6 +487,24 @@ void faceShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPositi
 
 
 
+                //////////////////////////////////// AMBIENT SHADING
+
+                float ambientRadienceRed   = scene.ambient_light.x;
+                float ambientRadienceGreen = scene.ambient_light.y;
+                float ambientRadienceBlue  = scene.ambient_light.z;
+
+
+                Vec3f ambientShadingParams = scene.materials[meshes[i].material_id-1].ambient; // for RGB values -> between 0 and 1
+
+
+                float ambientShadingRed   = ambientShadingParams.x * ambientRadienceRed; 
+                float ambientShadingGreen = ambientShadingParams.y * ambientRadienceGreen; 
+                float ambientShadingBlue  = ambientShadingParams.z * ambientRadienceBlue; 
+
+                Vec3f ambientShading = Vec3f(ambientShadingRed,ambientShadingGreen,ambientShadingBlue);
+
+                //////////////////////////////////// AMBIENT SHADING
+
                 Vec3f pointOnTheMesh    = eyeRay.e + eyeRay.d*t; 
 
                 Vec3f vectorToLight = -(lightPosition - pointOnTheMesh) ;
@@ -424,16 +512,23 @@ void faceShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPositi
                 float lightDistance = sqrt(dotProduct(vectorToLight,vectorToLight));
 
 
+
+
                 if(isUnderShadow(pointOnTheMesh, vectorToLight, scene, t , lightDistance)){
 
-                    image[index++] = 0;
-                    image[index++] = 0;
-                    image[index++] = 0;
+                    //image[index++] = 0;
+                    //image[index++] = 0;
+                    //image[index++] = 0;
+
+
+                    faceShade = Vec3f(0,0,0);
 
                     faceIntersection = true;
                     breakLoop = true;
                     break;
                 }
+
+
 
 
 
@@ -485,17 +580,23 @@ void faceShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPositi
                 //printf("Specular: %lf , %lf , %lf \n", specularShading.x, specularShading.y, specularShading.z );
 
 
-                Vec3f diffuseAndSpecular = clamp(diffuseShading+specularShading);
+                Vec3f faceShade = clamp(ambientShading + diffuseShading + specularShading);
 
 
 
-                image[index++] = diffuseAndSpecular.x;
-                image[index++] = diffuseAndSpecular.y;
-                image[index++] = diffuseAndSpecular.z;
+                //image[index++] = faceShade.x;
+                //image[index++] = faceShade.y;
+                //image[index++] = faceShade.z;
+
 
 
                 faceIntersection = true;
                 breakLoop = true;
+
+
+                return faceShade;
+
+
                 break;
 
                 
@@ -507,192 +608,279 @@ void faceShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPositi
 }
 
 
+float minFloat(float& t1, float& t2, float& t3){
+
+    if (t1<=t2 && t1 <= t3)
+    {
+        return t1;
+    }else if(t2<=t1 && t2 <= t3){
+        
+        return t2;
+    }else{
+        return t3;
+    }
+
+
+
+
+}
+
+
 int main(int argc, char* argv[])
 {
     // Sample usage for reading an XML scene file
     parser::Scene scene;
 
     scene.loadFromXml(argv[1]);
-
-    Ray gazeRay = Ray(scene.cameras[0].position , scene.cameras[0].gaze); // the eye ray which is perpendicular to the image plane
-
-    Vec3f e = scene.cameras[0].position; // camera position, the origin of the rays we trace
-
-    Vec3f w = scene.cameras[0].gaze; // camera gaze vector in xyz coordinates
-    Vec3f v = scene.cameras[0].up; // camera up vector in xyz coordinates
-    Vec3f u = crossProduct(v,-w); 
-
-    printf("u vector: %lf , %lf , %lf\n" , u.x , u.y , u.z );
-
-    Vec3f s;
-    
-    float s_u,s_v;
-
-    int n_x = scene.cameras[0].image_width;
-    int n_y = scene.cameras[0].image_height;
-
-    float distance = scene.cameras[0].near_distance; 
-
-    float l = scene.cameras[0].near_plane.x;
-    float r = scene.cameras[0].near_plane.y;
-    float b = scene.cameras[0].near_plane.z;
-    float t = scene.cameras[0].near_plane.w;
-
-    printf("width: %d \n"  , n_x);
-    printf("height: %d \n" , n_y);
-    printf("l: %lf , r: %lf , b: %lf , t: %lf  \n", l, r, b, t  );
-
-
-    // slide -> http://saksagan.ceng.metu.edu.tr/courses/ceng477/files/pdf/week_02.pdf ------- page 13/49
-
-    //find the coordanates of the point "q" (the point at the top-left of image plane )
-
-
-    Vec3f m = e + (w) * distance ;  // m is the intersection point of the gazeRay and the image plane
-
-    Vec3f q = m + u*l + v*t; //  
-
-    
-
-    //find the coordanates of the point "s" (the point we look through in ray tracing)
-
-
-    Ray eyeRay ;
-
-    printf("test\n");
-
-
-
-    int width = scene.cameras[0].image_width;
-    int height = scene.cameras[0].image_height;
-    int columnWidth = width / 8;
-
-    unsigned char* image = new unsigned char [width * height * 3];
-
-
-    int index = 0;
-
-    Vec3f surfaceNormal; // "intersection" function will assign this variable 
-
-
-    for (int i = 0; i < n_x; ++i)
-    {
-        for (int j = 0; j < n_y; ++j)
-        {
-            s_u = (r - l)*(j + 0.5)/n_x;
-            s_v = (t - b)*(i + 0.5)/n_y;
-
-
-            s = q + (u * s_u) - (v * s_v);
-
-
-            eyeRay = Ray(e, (s-e).normalize());
-
-
-            std::vector<parser::Mesh>     meshes    = scene.meshes;
-            std::vector<parser::Triangle> triangles = scene.triangles;
-            std::vector<parser::Sphere>   spheres   = scene.spheres;
-
-
-            float t;
-
-            bool sphereIntersection = false;
-            bool triangleIntersection = false;
-            bool faceIntersection = false;
-
-
-            Vec3f lightPosition  = scene.point_lights[0].position; // for testing 
-            Vec3f lightIntensity = scene.point_lights[0].intensity; // for testing 
-
-
-
-            sphereShading(scene, eyeRay, t,  lightPosition, lightIntensity,  spheres, image, sphereIntersection, index);
-
-
-            triangleShading(scene, eyeRay, t,  lightPosition, lightIntensity,  triangles, image, sphereIntersection, triangleIntersection, index, surfaceNormal);
-            
-
-            faceShading(scene, eyeRay, t,  lightPosition, lightIntensity,  meshes, image, sphereIntersection, triangleIntersection, faceIntersection, index, surfaceNormal);
-
-            if (!sphereIntersection && !triangleIntersection && !faceIntersection)
-            {
-                image[index++] = scene.background_color.x;
-                image[index++] = scene.background_color.y;
-                image[index++] = scene.background_color.z;
-            } 
-
-            //printf("INDEX : %d \n " , index);
-
-
-
-
-        }
-    }
-/*
-    printf("TOP LEFT  :\n"    );
-    printf("s_u: %lf \n" , (r - l)*(0 + 0.5)/n_x );
-    printf("s_v: %lf \n" , (t - b)*(0 + 0.5)/n_y );
-
-    printf("BOTTOM RIGHT  :\n"    );
-    printf("s_u: %lf \n" , (r - l)*(n_x-1 + 0.5)/n_x );
-    printf("s_v: %lf \n" , (t - b)*(n_y-1 + 0.5)/n_y );
-
-    printf("NUMBERS: \n");
-    printf("l: %lf \n"  , l);
-    printf("r: %lf \n"  , r);
-    printf("b: %lf \n"  , b);
-    printf("t: %lf \n"  , t);
-    printf("n_x: %d \n"  , n_x);
-    printf("n_y: %d \n"  , n_y);
-
-*/
-    // The code below creates a test pattern and writes
-    // it to a PPM file to demonstrate the usage of the
-    // ppm_write function.
-    /*
-    const RGB BAR_COLOR[8] =
-    {
-        { 255, 255, 255 },  // 100% White
-        { 255, 255,   0 },  // Yellow
-        {   0, 255, 255 },  // Cyan
-        {   0, 255,   0 },  // Green
-        { 255,   0, 255 },  // Magenta
-        { 255,   0,   0 },  // Red
-        {   0,   0, 255 },  // Blue
-        {   0,   0,   0 },  // Black
-    };
-
-    int width = 640, height = 480;
-    int columnWidth = width / 8;
-
-    unsigned char* image = new unsigned char [width * height * 3];
-
-    int i = 0;
-    for (int y = 0; y < height; ++y)
-    {
-        for (int x = 0; x < width; ++x)
-        {
-            int colIdx = x / columnWidth;
-            image[i++] = BAR_COLOR[colIdx][0];
-            image[i++] = BAR_COLOR[colIdx][1];
-            image[i++] = BAR_COLOR[colIdx][2];
-        }
-    }
-
-
-    */
-
-
     for (int i = 0; i < scene.cameras.size(); ++i)
     {
         std::cout << scene.cameras[i].image_name << std::endl;
 
         const char* filename =  scene.cameras[i].image_name.c_str();
 
-        //const char* filepath = std::strcat("TestOutputs/", filename);
+
+
+
+            
+
+
+
+            
+        int width = scene.cameras[i].image_width;
+        int height = scene.cameras[i].image_height;
+        const int numOfImages = scene.cameras.size();
+        
+        //unsigned char** images = new unsigned char* [width * height * 3][numOfImages];
+
+        //printf("test1\n");
+
+        unsigned char* image = new unsigned char [width * height * 3];    
+
+        //printf("test2\n");
+
+
+        Ray gazeRay = Ray(scene.cameras[i].position , scene.cameras[i].gaze); // the eye ray which is perpendicular to the image plane
+
+        Vec3f e = scene.cameras[i].position; // camera position, the origin of the rays we trace
+
+        Vec3f w = scene.cameras[i].gaze; // camera gaze vector in xyz coordinates
+        Vec3f v = scene.cameras[i].up; // camera up vector in xyz coordinates
+        Vec3f u = crossProduct(v,-w); 
+
+        printf("u vector: %lf , %lf , %lf\n" , u.x , u.y , u.z );
+
+        Vec3f s;
+        
+        float s_u,s_v;
+
+        int n_x = scene.cameras[i].image_width;
+        int n_y = scene.cameras[i].image_height;
+
+        float distance = scene.cameras[i].near_distance; 
+
+        float l = scene.cameras[i].near_plane.x;
+        float r = scene.cameras[i].near_plane.y;
+        float b = scene.cameras[i].near_plane.z;
+        float t = scene.cameras[i].near_plane.w;
+
+        printf("width: %d \n"  , n_x);
+        printf("height: %d \n" , n_y);
+        printf("l: %lf , r: %lf , b: %lf , t: %lf  \n", l, r, b, t  );
+
+
+        // slide -> http://saksagan.ceng.metu.edu.tr/courses/ceng477/files/pdf/week_02.pdf ------- page 13/49
+
+        //find the coordanates of the point "q" (the point at the top-left of image plane )
+
+
+        Vec3f m = e + (w) * distance ;  // m is the intersection point of the gazeRay and the image plane
+
+        Vec3f q = m + u*l + v*t; //  
+
+        
+
+        //find the coordanates of the point "s" (the point we look through in ray tracing)
+
+
+        Ray eyeRay ;
+
+        printf("test\n");
+
+
+
+
+
+
+
+
+
+        int index = 0;
+
+        Vec3f surfaceNormal; // "intersection" function will assign this variable 
+
+
+        for (int i = 0; i < n_x; ++i)
+        {
+            for (int j = 0; j < n_y; ++j)
+            {
+                s_u = (r - l)*(j + 0.5)/n_x;
+                s_v = (t - b)*(i + 0.5)/n_y;
+
+
+                s = q + (u * s_u) - (v * s_v);
+
+
+                eyeRay = Ray(e, (s-e).normalize());
+
+
+                std::vector<parser::Mesh>     meshes    = scene.meshes;
+                std::vector<parser::Triangle> triangles = scene.triangles;
+                std::vector<parser::Sphere>   spheres   = scene.spheres;
+
+
+                float t1,t2,t3;
+
+                bool sphereIntersection = false;
+                bool triangleIntersection = false;
+                bool faceIntersection = false;
+
+
+                Vec3f lightPosition  = scene.point_lights[0].position; // for testing 
+                Vec3f lightIntensity = scene.point_lights[0].intensity; // for testing 
+
+
+                //printf("TEST123\n");
+
+                Vec3f sphereShade   = sphereShading(scene, eyeRay, t1,  lightPosition, lightIntensity,  spheres, image, sphereIntersection, index);
+
+
+                Vec3f triangleShade = triangleShading(scene, eyeRay, t2,  lightPosition, lightIntensity,  triangles, image, sphereIntersection, triangleIntersection, index, surfaceNormal);
+                
+
+                Vec3f faceShade   =  faceShading(scene, eyeRay, t3,  lightPosition, lightIntensity,  meshes, image, sphereIntersection, triangleIntersection, faceIntersection, index, surfaceNormal);
+
+
+
+
+
+                float min = minFloat(t1,t2,t3);
+
+                //printf("T1: %lf , T2: %lf , T3: %lf \n", t1,t2,t3 );
+                //printf("MIN: %lf  \n" , min);
+
+
+                if (sphereIntersection )
+                {
+                    printf("Sphere hit\n");
+                    image[index++] = sphereShade.x;
+                    image[index++] = sphereShade.y;
+                    image[index++] = sphereShade.z;
+                } else if (triangleIntersection  )
+                {
+                    printf("Triangle hit\n");
+
+                    image[index++] = triangleShade.x;
+                    image[index++] = triangleShade.y;
+                    image[index++] = triangleShade.z;
+
+                } else if(faceIntersection ){
+                    printf("face hit\n");
+
+                    image[index++] = faceShade.x;
+                    image[index++] = faceShade.y;
+                    image[index++] = faceShade.z;
+ 
+                }
+                else{
+                    printf("T1 : %lf \n"  , t1);
+                    printf("T2 : %lf \n"  , t2);
+                    printf("T3 : %lf \n"  , t3);
+                    
+
+
+
+                }
+
+
+                //printf("TEST789\n");
+
+
+
+
+                if (!sphereIntersection && !triangleIntersection && !faceIntersection)
+                {
+                    printf("Not Hıt!!!\n");
+                    printf("INDEX: %d \n", index);
+
+                    image[index++] = scene.background_color.x;
+                    image[index++] = scene.background_color.y;
+                    image[index++] = scene.background_color.z;
+                } 
+
+                //printf("TEST : %d \n " , index);
+
+
+
+
+            }
+        }
+    /*
+        printf("TOP LEFT  :\n"    );
+        printf("s_u: %lf \n" , (r - l)*(0 + 0.5)/n_x );
+        printf("s_v: %lf \n" , (t - b)*(0 + 0.5)/n_y );
+
+        printf("BOTTOM RIGHT  :\n"    );
+        printf("s_u: %lf \n" , (r - l)*(n_x-1 + 0.5)/n_x );
+        printf("s_v: %lf \n" , (t - b)*(n_y-1 + 0.5)/n_y );
+
+        printf("NUMBERS: \n");
+        printf("l: %lf \n"  , l);
+        printf("r: %lf \n"  , r);
+        printf("b: %lf \n"  , b);
+        printf("t: %lf \n"  , t);
+        printf("n_x: %d \n"  , n_x);
+        printf("n_y: %d \n"  , n_y);
+
+    */
+        // The code below creates a test pattern and writes
+        // it to a PPM file to demonstrate the usage of the
+        // ppm_write function.
+        /*
+        const RGB BAR_COLOR[8] =
+        {
+            { 255, 255, 255 },  // 100% White
+            { 255, 255,   0 },  // Yellow
+            {   0, 255, 255 },  // Cyan
+            {   0, 255,   0 },  // Green
+            { 255,   0, 255 },  // Magenta
+            { 255,   0,   0 },  // Red
+            {   0,   0, 255 },  // Blue
+            {   0,   0,   0 },  // Black
+        };
+
+        int width = 640, height = 480;
+        int columnWidth = width / 8;
+
+        unsigned char* image = new unsigned char [width * height * 3];
+
+        int i = 0;
+        for (int y = 0; y < height; ++y)
+        {
+            for (int x = 0; x < width; ++x)
+            {
+                int colIdx = x / columnWidth;
+                image[i++] = BAR_COLOR[colIdx][0];
+                image[i++] = BAR_COLOR[colIdx][1];
+                image[i++] = BAR_COLOR[colIdx][2];
+            }
+        }
+
+
+        */
+
+
 
         write_ppm(filename, image, width, height);
-
         
     }
     
