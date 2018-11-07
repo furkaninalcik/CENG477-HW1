@@ -281,6 +281,12 @@ Vec3f mirrorShader(){
 
 }
 
+
+
+
+
+
+
 Vec3f triangleShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPosition, Vec3f& lightIntensity,  std::vector<parser::Triangle>& triangles, unsigned char* image , bool& sphereIntersection, bool& triangleIntersection, int& index, Vec3f& surfaceNormal){
     
     for (int i = 0; i < triangles.size(); ++i)
@@ -337,299 +343,266 @@ bool isUnderShadow(Vec3f& pointOnTheMesh, Vec3f& vectorToLight, parser::Scene& s
 }
 
 
-Vec3f faceShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPosition, Vec3f& lightIntensity,  std::vector<parser::Mesh>& meshes, unsigned char* image , bool& sphereIntersection, bool& triangleIntersection, bool& faceIntersection, int& index, Vec3f& surfaceNormal){
+Vec3f faceShading(parser::Scene& scene, Ray& eyeRay, float& t, parser::Face& face, parser::Material& material , Vec3f& intersectionSurfaceNormal){
     
-    bool breakLoop = false;
+    //Vec3f surfaceNormal;
+    Vec3f lightPosition  = scene.point_lights[0].position; // for testing 
+    Vec3f lightIntensity = scene.point_lights[0].intensity; // for testing 
 
+    //////////////////////////////////// AMBIENT SHADING
 
-    Vec3f faceShade = Vec3f(0,0,0);
+    float ambientRadienceRed   = scene.ambient_light.x;
+    float ambientRadienceGreen = scene.ambient_light.y;
+    float ambientRadienceBlue  = scene.ambient_light.z;
 
-    for (int i = 0; i < scene.meshes.size(); ++i)
-    {
-        if(breakLoop == true){
-            break;
-        }
-        for (int j = 0; j < scene.meshes[i].faces.size(); ++j)
-        {
-            if (!sphereIntersection && !triangleIntersection && intersection(eyeRay, scene.meshes[i].faces[j], scene ,t , surfaceNormal))
-            {
 
+    Vec3f ambientShadingParams = material.ambient; // for RGB values -> between 0 and 1
 
 
+    float ambientShadingRed   = ambientShadingParams.x * ambientRadienceRed; 
+    float ambientShadingGreen = ambientShadingParams.y * ambientRadienceGreen; 
+    float ambientShadingBlue  = ambientShadingParams.z * ambientRadienceBlue; 
 
-                //////////////////////////////////// AMBIENT SHADING
+    Vec3f ambientShading = Vec3f(ambientShadingRed,ambientShadingGreen,ambientShadingBlue);
 
-                float ambientRadienceRed   = scene.ambient_light.x;
-                float ambientRadienceGreen = scene.ambient_light.y;
-                float ambientRadienceBlue  = scene.ambient_light.z;
+    //////////////////////////////////// AMBIENT SHADING
 
+    Vec3f pointOnTheMesh    = eyeRay.e + eyeRay.d*t; 
 
-                Vec3f ambientShadingParams = scene.materials[meshes[i].material_id-1].ambient; // for RGB values -> between 0 and 1
+    Vec3f vectorToLight = -(lightPosition - pointOnTheMesh) ;
 
+    float lightDistance = sqrt(dotProduct(vectorToLight,vectorToLight));
 
-                float ambientShadingRed   = ambientShadingParams.x * ambientRadienceRed; 
-                float ambientShadingGreen = ambientShadingParams.y * ambientRadienceGreen; 
-                float ambientShadingBlue  = ambientShadingParams.z * ambientRadienceBlue; 
 
-                Vec3f ambientShading = Vec3f(ambientShadingRed,ambientShadingGreen,ambientShadingBlue);
 
-                //////////////////////////////////// AMBIENT SHADING
 
-                Vec3f pointOnTheMesh    = eyeRay.e + eyeRay.d*t; 
+    if(isUnderShadow(pointOnTheMesh, vectorToLight, scene, t , lightDistance)){
 
-                Vec3f vectorToLight = -(lightPosition - pointOnTheMesh) ;
+        //image[index++] = 0;
+        //image[index++] = 0;
+        //image[index++] = 0;
 
-                float lightDistance = sqrt(dotProduct(vectorToLight,vectorToLight));
 
+        //faceShade = Vec3f(0,0,0);
 
-
-
-                if(isUnderShadow(pointOnTheMesh, vectorToLight, scene, t , lightDistance)){
-
-                    //image[index++] = 0;
-                    //image[index++] = 0;
-                    //image[index++] = 0;
-
-
-                    faceShade = Vec3f(0,0,0);
-
-                    return faceShade;
-
-                    faceIntersection = true;
-                    breakLoop = true;
-                    break;
-                }
-
-
-
-
-
-                float cosTheta = dotProduct(vectorToLight.normalize(), surfaceNormal.normalize());
-
-                //printf("COSTHETA: %lf \n", cosTheta );
-
-
-                cosTheta = (cosTheta < 0) ? 0 : cosTheta;
-                
-
-                Vec3f diffuseShadingParams = scene.materials[meshes[i].material_id-1].diffuse; // for RGB values -> between 0 and 1
-
-
-                //printf("Diffuse parameters: %lf , %lf , %lf \n", diffuseShadingParams.x, diffuseShadingParams.y, diffuseShadingParams.z );
-
-                Vec3f irradiance = lightIntensity * (1.0/(lightDistance*lightDistance));
-
-
-                float diffuseShadingRed   = diffuseShadingParams.x * cosTheta * irradiance.x; 
-                float diffuseShadingGreen = diffuseShadingParams.y * cosTheta * irradiance.y; 
-                float diffuseShadingBlue  = diffuseShadingParams.z * cosTheta * irradiance.z; 
-
-                Vec3f diffuseShading = Vec3f(diffuseShadingRed,diffuseShadingGreen,diffuseShadingBlue);
-
-
-                //printf("Diffuse: %lf , %lf , %lf \n", diffuseShading.x, diffuseShading.y, diffuseShading.z );
-
-
-                Vec3f halfWayVector = ((-eyeRay.d).normalize() + vectorToLight.normalize()).normalize();
-
-                float cosAlpha = dotProduct(halfWayVector.normalize(), surfaceNormal.normalize()); // for specular shading
-
-                cosAlpha = (cosAlpha < 0) ? 0 : cosAlpha;
-
-
-                Vec3f specularShadingParams = scene.materials[meshes[i].material_id-1].specular; // for RGB values -> between 0 and 1
-                float phong_exponent = scene.materials[meshes[i].material_id-1].phong_exponent; // for RGB values -> between 0 and 1
-                float cosAlphaWithPhong = pow(cosAlpha,phong_exponent); 
-                //printf("Specular : %lf %lf %lf  \n", specularShadingParams.x, specularShadingParams.y, specularShadingParams.z   );
-
-
-                float specularShadingRed   = specularShadingParams.x * cosAlphaWithPhong * irradiance.x; 
-                float specularShadingGreen = specularShadingParams.y * cosAlphaWithPhong * irradiance.y; 
-                float specularShadingBlue  = specularShadingParams.z * cosAlphaWithPhong * irradiance.z; 
-
-                Vec3f specularShading = Vec3f(specularShadingRed,specularShadingGreen,specularShadingBlue);
-
-                //printf("Specular: %lf , %lf , %lf \n", specularShading.x, specularShading.y, specularShading.z );
-
-
-                Vec3f faceShade = clamp(ambientShading + diffuseShading + specularShading);
-
-
-
-                //image[index++] = faceShade.x;
-                //image[index++] = faceShade.y;
-                //image[index++] = faceShade.z;
-
-
-
-                faceIntersection = true;
-                breakLoop = true;
-
-
-                return faceShade;
-
-
-                break;
-
-                
-            }
-             
-        }
+        return Vec3f(0,0,0);
     }
+
+
+
+
+
+    float cosTheta = dotProduct(vectorToLight.normalize(), intersectionSurfaceNormal.normalize());
+
+    //printf("COSTHETA: %lf \n", cosTheta );
+
+
+    cosTheta = (cosTheta < 0) ? 0 : cosTheta;
+
+
+    Vec3f diffuseShadingParams = material.diffuse; // for RGB values -> between 0 and 1
+
+
+    //printf("Diffuse parameters: %lf , %lf , %lf \n", diffuseShadingParams.x, diffuseShadingParams.y, diffuseShadingParams.z );
+
+    Vec3f irradiance = lightIntensity * (1.0/(lightDistance*lightDistance));
+
+
+    float diffuseShadingRed   = diffuseShadingParams.x * cosTheta * irradiance.x; 
+    float diffuseShadingGreen = diffuseShadingParams.y * cosTheta * irradiance.y; 
+    float diffuseShadingBlue  = diffuseShadingParams.z * cosTheta * irradiance.z; 
+
+    Vec3f diffuseShading = Vec3f(diffuseShadingRed,diffuseShadingGreen,diffuseShadingBlue);
+
+
+    //printf("Diffuse: %lf , %lf , %lf \n", diffuseShading.x, diffuseShading.y, diffuseShading.z );
+
+
+    Vec3f halfWayVector = ((-eyeRay.d).normalize() + vectorToLight.normalize()).normalize();
+
+    float cosAlpha = dotProduct(halfWayVector.normalize(), intersectionSurfaceNormal.normalize()); // for specular shading
+
+    cosAlpha = (cosAlpha < 0) ? 0 : cosAlpha;
+
+
+    Vec3f specularShadingParams = material.specular; // for RGB values -> between 0 and 1
+    float phong_exponent = material.phong_exponent; // for RGB values -> between 0 and 1
+    float cosAlphaWithPhong = pow(cosAlpha,phong_exponent); 
+    //printf("Specular : %lf %lf %lf  \n", specularShadingParams.x, specularShadingParams.y, specularShadingParams.z   );
+
+
+    float specularShadingRed   = specularShadingParams.x * cosAlphaWithPhong * irradiance.x; 
+    float specularShadingGreen = specularShadingParams.y * cosAlphaWithPhong * irradiance.y; 
+    float specularShadingBlue  = specularShadingParams.z * cosAlphaWithPhong * irradiance.z; 
+
+    Vec3f specularShading = Vec3f(specularShadingRed,specularShadingGreen,specularShadingBlue);
+
+    //printf("Specular: %lf , %lf , %lf \n", specularShading.x, specularShading.y, specularShading.z );
+
+
+    Vec3f faceShade = clamp(ambientShading + diffuseShading + specularShading);
+
+
+
+    //image[index++] = faceShade.x;
+    //image[index++] = faceShade.y;
+    //image[index++] = faceShade.z;
+
+
+    return faceShade;
+
+                
 
 }
 
 
 
 
-Vec3f sphereShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPosition, Vec3f& lightIntensity,  std::vector<parser::Sphere>& spheres, unsigned char* image , bool& sphereIntersection, int& index ){
+Vec3f sphereShading(parser::Scene& scene, Ray& eyeRay, float& t, parser::Sphere& sphere ){
 
-    for (int i = 0; i < spheres.size(); ++i)
+
+    Vec3f center = scene.vertex_data[sphere.center_vertex_id-1]; // center of the sphere 
+    
+    Vec3f lightPosition  = scene.point_lights[0].position; // for testing 
+    Vec3f lightIntensity = scene.point_lights[0].intensity; // for testing 
+
+
+    //////////////////////////////////// AMBIENT SHADING
+
+    float ambientRadienceRed   = scene.ambient_light.x;
+    float ambientRadienceGreen = scene.ambient_light.y;
+    float ambientRadienceBlue  = scene.ambient_light.z;
+
+
+    Vec3f ambientShadingParams = scene.materials[sphere.material_id-1].ambient; // for RGB values -> between 0 and 1
+
+
+    float ambientShadingRed   = ambientShadingParams.x * ambientRadienceRed; 
+    float ambientShadingGreen = ambientShadingParams.y * ambientRadienceGreen; 
+    float ambientShadingBlue  = ambientShadingParams.z * ambientRadienceBlue; 
+
+    Vec3f ambientShading = Vec3f(ambientShadingRed,ambientShadingGreen,ambientShadingBlue);
+
+    //////////////////////////////////// AMBIENT SHADING
+
+
+
+    Vec3f pointOnTheSphere  = eyeRay.e + eyeRay.d*t; 
+
+
+    //isUnderShadow(pointOnTheSphere, lightPosition);
+
+
+    Vec3f sphereSurfaceNormal = (pointOnTheSphere - center) * (1.0 / sphere.radius);
+
+
+    Vec3f vectorToLight = lightPosition - pointOnTheSphere ; 
+
+    float lightDistance = sqrt(dotProduct(vectorToLight,vectorToLight));
+
+    float cosTheta = dotProduct(vectorToLight.normalize(), sphereSurfaceNormal.normalize());
+
+    cosTheta = (cosTheta < 0) ? 0 : cosTheta;
+
+
+    Vec3f diffuseShadingParams = scene.materials[sphere.material_id-1].diffuse; // for RGB values -> between 0 and 1
+
+    Vec3f irradiance = lightIntensity * (1.0/(lightDistance*lightDistance));
+
+
+    float diffuseShadingRed   = diffuseShadingParams.x * cosTheta * irradiance.x; 
+    float diffuseShadingGreen = diffuseShadingParams.y * cosTheta * irradiance.y; 
+    float diffuseShadingBlue  = diffuseShadingParams.z * cosTheta * irradiance.z; 
+
+    Vec3f diffuseShading = Vec3f(diffuseShadingRed,diffuseShadingGreen,diffuseShadingBlue);
+
+
+    Vec3f halfWayVector = ((-eyeRay.d).normalize() + vectorToLight.normalize()).normalize();
+
+    float cosAlpha = dotProduct(halfWayVector.normalize(), sphereSurfaceNormal.normalize()); // for specular shading
+
+    cosAlpha = (cosAlpha < 0) ? 0 : cosAlpha;
+
+
+    Vec3f specularShadingParams = scene.materials[sphere.material_id-1].specular; // for RGB values -> between 0 and 1
+    float phong_exponent = scene.materials[sphere.material_id-1].phong_exponent; // for RGB values -> between 0 and 1
+    float cosAlphaWithPhong = pow(cosAlpha,phong_exponent); 
+    //printf("Specular : %lf %lf %lf  \n", specularShadingParams.x, specularShadingParams.y, specularShadingParams.z   );
+
+
+    float specularShadingRed   = specularShadingParams.x * cosAlphaWithPhong * irradiance.x; 
+    float specularShadingGreen = specularShadingParams.y * cosAlphaWithPhong * irradiance.y; 
+    float specularShadingBlue  = specularShadingParams.z * cosAlphaWithPhong * irradiance.z; 
+
+    Vec3f specularShading = Vec3f(specularShadingRed,specularShadingGreen,specularShadingBlue);
+
+
+
+
+    //////////////////////////////////// MIRROR SHADING
+
+
+    Vec3f mirrorShadingParams = scene.materials[sphere.material_id-1].mirror; // for RGB values -> between 0 and 1
+
+    /*
+    if (mirrorShadingParams.x != 0 || mirrorShadingParams.y != 0 || mirrorShadingParams.z != 0 )
     {
-        Vec3f center = scene.vertex_data[spheres[i].center_vertex_id-1]; // center of the sphere 
-        if (intersection(eyeRay, spheres[i], center ,t )){
+        printf("MIRROR\n");
+
+        float t1,t2,t3;
+
+        sphereSurfaceNormal = sphereSurfaceNormal.normalize();
+
+        eyeRay.d = eyeRay.d.normalize();
+
+        Vec3f mirrorReflactanceRayDirection  = eyeRay.d + (sphereSurfaceNormal*(2*dotProduct(sphereSurfaceNormal,(-eyeRay.d)))) ;
+
+        Ray mirrorReflactanceRay = Ray(pointOnTheSphere, mirrorReflactanceRayDirection );
 
 
-
-            //////////////////////////////////// AMBIENT SHADING
-
-            float ambientRadienceRed   = scene.ambient_light.x;
-            float ambientRadienceGreen = scene.ambient_light.y;
-            float ambientRadienceBlue  = scene.ambient_light.z;
+        bool sphereIntersection = false;
+        bool triangleIntersection = false;
+        bool faceIntersection = false;
 
 
-            Vec3f ambientShadingParams = scene.materials[spheres[i].material_id-1].ambient; // for RGB values -> between 0 and 1
+        Vec3f surfaceNormal; // "intersection" function will assign this variable 
 
 
-            float ambientShadingRed   = ambientShadingParams.x * ambientRadienceRed; 
-            float ambientShadingGreen = ambientShadingParams.y * ambientRadienceGreen; 
-            float ambientShadingBlue  = ambientShadingParams.z * ambientRadienceBlue; 
-
-            Vec3f ambientShading = Vec3f(ambientShadingRed,ambientShadingGreen,ambientShadingBlue);
-
-            //////////////////////////////////// AMBIENT SHADING
+        Vec3f sphereShade   = sphereShading(scene, eyeRay, t1,  lightPosition, lightIntensity,  spheres, image, sphereIntersection, index);
 
 
-
-            Vec3f pointOnTheSphere  = eyeRay.e + eyeRay.d*t; 
-
-
-            //isUnderShadow(pointOnTheSphere, lightPosition);
-
-
-            Vec3f sphereSurfaceNormal = (pointOnTheSphere - center) * (1.0 / spheres[i].radius);
-
-
-            Vec3f vectorToLight = lightPosition - pointOnTheSphere ; 
-
-            float lightDistance = sqrt(dotProduct(vectorToLight,vectorToLight));
-
-            float cosTheta = dotProduct(vectorToLight.normalize(), sphereSurfaceNormal.normalize());
-
-            cosTheta = (cosTheta < 0) ? 0 : cosTheta;
-            
-
-            Vec3f diffuseShadingParams = scene.materials[spheres[i].material_id-1].diffuse; // for RGB values -> between 0 and 1
-
-            Vec3f irradiance = lightIntensity * (1.0/(lightDistance*lightDistance));
-
-
-            float diffuseShadingRed   = diffuseShadingParams.x * cosTheta * irradiance.x; 
-            float diffuseShadingGreen = diffuseShadingParams.y * cosTheta * irradiance.y; 
-            float diffuseShadingBlue  = diffuseShadingParams.z * cosTheta * irradiance.z; 
-
-            Vec3f diffuseShading = Vec3f(diffuseShadingRed,diffuseShadingGreen,diffuseShadingBlue);
-
-
-            Vec3f halfWayVector = ((-eyeRay.d).normalize() + vectorToLight.normalize()).normalize();
-
-            float cosAlpha = dotProduct(halfWayVector.normalize(), sphereSurfaceNormal.normalize()); // for specular shading
-
-            cosAlpha = (cosAlpha < 0) ? 0 : cosAlpha;
-
-
-            Vec3f specularShadingParams = scene.materials[spheres[i].material_id-1].specular; // for RGB values -> between 0 and 1
-            float phong_exponent = scene.materials[spheres[i].material_id-1].phong_exponent; // for RGB values -> between 0 and 1
-            float cosAlphaWithPhong = pow(cosAlpha,phong_exponent); 
-            //printf("Specular : %lf %lf %lf  \n", specularShadingParams.x, specularShadingParams.y, specularShadingParams.z   );
-
-
-            float specularShadingRed   = specularShadingParams.x * cosAlphaWithPhong * irradiance.x; 
-            float specularShadingGreen = specularShadingParams.y * cosAlphaWithPhong * irradiance.y; 
-            float specularShadingBlue  = specularShadingParams.z * cosAlphaWithPhong * irradiance.z; 
-
-            Vec3f specularShading = Vec3f(specularShadingRed,specularShadingGreen,specularShadingBlue);
-
-
-
-
-            //////////////////////////////////// MIRROR SHADING
-            
-
-            Vec3f mirrorShadingParams = scene.materials[spheres[i].material_id-1].mirror; // for RGB values -> between 0 and 1
-
-            /*
-            if (mirrorShadingParams.x != 0 || mirrorShadingParams.y != 0 || mirrorShadingParams.z != 0 )
-            {
-                printf("MIRROR\n");
-
-                float t1,t2,t3;
-
-                sphereSurfaceNormal = sphereSurfaceNormal.normalize();
-
-                eyeRay.d = eyeRay.d.normalize();
-
-                Vec3f mirrorReflactanceRayDirection  = eyeRay.d + (sphereSurfaceNormal*(2*dotProduct(sphereSurfaceNormal,(-eyeRay.d)))) ;
-
-                Ray mirrorReflactanceRay = Ray(pointOnTheSphere, mirrorReflactanceRayDirection );
-
-
-                bool sphereIntersection = false;
-                bool triangleIntersection = false;
-                bool faceIntersection = false;
-
+        Vec3f triangleShade = triangleShading(scene, eyeRay, t2,  lightPosition, lightIntensity,  scene.triangles, image, sphereIntersection, triangleIntersection, index, surfaceNormal);
         
-                Vec3f surfaceNormal; // "intersection" function will assign this variable 
+
+        Vec3f faceShade   =  faceShading(scene, eyeRay, t3,  lightPosition, lightIntensity,  scene.meshes, image, sphereIntersection, triangleIntersection, faceIntersection, index, surfaceNormal);
 
 
-                Vec3f sphereShade   = sphereShading(scene, eyeRay, t1,  lightPosition, lightIntensity,  spheres, image, sphereIntersection, index);
-
-
-                Vec3f triangleShade = triangleShading(scene, eyeRay, t2,  lightPosition, lightIntensity,  scene.triangles, image, sphereIntersection, triangleIntersection, index, surfaceNormal);
-                
-
-                Vec3f faceShade   =  faceShading(scene, eyeRay, t3,  lightPosition, lightIntensity,  scene.meshes, image, sphereIntersection, triangleIntersection, faceIntersection, index, surfaceNormal);
-
-
-            }
-
-
-            */
-
-
-
-
-            //////////////////////////////////// MIRROR SHADING
-
-
-
-
-
-            Vec3f sphereShade = clamp(ambientShading + diffuseShading + specularShading);
-
-
-            //image[index++] = diffuseAndSpecular.x;
-            //image[index++] = diffuseAndSpecular.y;
-            //image[index++] = diffuseAndSpecular.z;
-            sphereIntersection = true;
-
-            return sphereShade;
-
-
-            break;
-        }
-        
     }
+
+
+    */
+
+
+
+
+    //////////////////////////////////// MIRROR SHADING
+
+
+
+
+
+    Vec3f sphereShade = clamp(ambientShading + diffuseShading + specularShading);
+
+
+    //image[index++] = diffuseAndSpecular.x;
+    //image[index++] = diffuseAndSpecular.y;
+    //image[index++] = diffuseAndSpecular.z;
+    //sphereIntersection = true;
+
+    return sphereShade;
+
+
+  
 }
 
 
@@ -650,6 +623,154 @@ float minFloat(float& t1, float& t2, float& t3){
 
 }
 
+Vec3f intersectionDetector(parser::Scene& scene, Ray& eyeRay, float& t_final, Vec3f& surfaceNormal, char& objInfo_0, int& objInfo_1, int& objInfo_2 ){
+
+
+    float t_min = 100000.0; // We assume that all the t values will be less that this number
+
+    float t;
+
+    Vec3f intersectionSurfaceNormal;
+
+    //char objectInfo[] = {' ', ' ', ' '}; 
+
+    for (int i = 0; i < scene.spheres.size(); ++i)
+    {
+        Vec3f center = scene.vertex_data[scene.spheres[i].center_vertex_id-1]; // center of the sphere 
+        if (intersection(eyeRay, scene.spheres[i], center ,t ) && t <= t_min){
+            t_min = t;
+            objInfo_0 = 's';
+            objInfo_1 = i;
+        }
+        
+    }
+    for (int i = 0; i < scene.triangles.size(); ++i)
+    {
+        if(intersection(eyeRay, scene.triangles[i].indices, scene ,t , surfaceNormal) && t <= t_min){
+
+            intersectionSurfaceNormal = surfaceNormal;
+            t_min = t;
+            objInfo_0 = 't';
+            objInfo_1 = i;
+        }
+    }
+    for (int i = 0; i < scene.meshes.size(); ++i)
+    {
+        for (int j = 0; j < scene.meshes[i].faces.size(); ++j)
+        {
+            if (intersection(eyeRay, scene.meshes[i].faces[j], scene ,t , surfaceNormal) && t <= t_min)
+            {
+
+                intersectionSurfaceNormal = surfaceNormal;
+                t_min = t;
+                objInfo_0 = 'f';
+                objInfo_1 = i;
+                objInfo_2 = j;
+            }
+             
+        }
+    }
+
+
+    t_final = t_min;
+    surfaceNormal = intersectionSurfaceNormal;
+
+
+}
+
+Vec3f shader(unsigned char* image, parser::Scene& scene, Ray& eyeRay, float& t, char& objInfo_0, int& objInfo_1, int& objInfo_2 ,int& index, Vec3f intersectionSurfaceNormal){
+
+    Vec3f sphereShade;
+    Vec3f triangleShade;
+    Vec3f faceShade;
+
+    if (objInfo_0 == 's')
+    {
+        printf("Sphere SHADE! \n");
+    
+        parser::Sphere sphere = scene.spheres[objInfo_1];
+
+        sphereShade = sphereShading(scene, eyeRay, t, sphere );
+    
+
+    }
+    else if (objInfo_0 == 't')
+    {
+        printf("Triangle SHADE! \n");
+
+        //Vec3f triangleShade = triangleShading(scene, eyeRay, t2,  lightPosition, lightIntensity,  triangles, image, sphereIntersection, triangleIntersection, index, surfaceNormal);
+
+    }
+    else if (objInfo_0 == 'f')
+    {
+        printf("Face SHADE! \n");
+
+        parser::Face face = scene.meshes[objInfo_1].faces[objInfo_2];
+
+        parser::Material material = scene.materials[scene.meshes[objInfo_1].material_id-1];        
+    
+        faceShade   =  faceShading(scene, eyeRay, t, face, material, intersectionSurfaceNormal  );
+
+    }
+
+
+
+
+
+    //float min = minFloat(t1,t2,t3);
+
+    //printf("T1: %lf , T2: %lf , T3: %lf \n", t1,t2,t3 );
+    //printf("MIN: %lf  \n" , min);
+
+
+    if (objInfo_0 == 's' )
+    {
+        //printf("Sphere hit\n");
+        image[index++] = sphereShade.x;
+        image[index++] = sphereShade.y;
+        image[index++] = sphereShade.z;
+    } else if (objInfo_0 == 't'  )
+    {
+        //printf("Triangle hit\n");
+
+        image[index++] = triangleShade.x;
+        image[index++] = triangleShade.y;
+        image[index++] = triangleShade.z;
+
+    } else if(objInfo_0 == 'f'  ){
+        //printf("face hit\n");
+
+        image[index++] = faceShade.x;
+        image[index++] = faceShade.y;
+        image[index++] = faceShade.z;
+
+    }
+    else{
+        //printf("T1 : %lf \n"  , t1);
+        //printf("T2 : %lf \n"  , t2);
+        //printf("T3 : %lf \n"  , t3);
+        
+    }
+
+
+    ////////////////////////// BACKGROUND SHADING //////////////////////////
+
+    if (objInfo_0 == ' ')
+    {
+
+        image[index++] = scene.background_color.x;
+        image[index++] = scene.background_color.y;
+        image[index++] = scene.background_color.z;
+    } 
+
+    ////////////////////////// BACKGROUND SHADING //////////////////////////
+
+
+
+
+
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -662,11 +783,6 @@ int main(int argc, char* argv[])
         std::cout << scene.cameras[i].image_name << std::endl;
 
         const char* filename =  scene.cameras[i].image_name.c_str();
-
-
-
-
-            
 
 
 
@@ -741,7 +857,7 @@ int main(int argc, char* argv[])
 
         int index = 0;
 
-        Vec3f surfaceNormal; // "intersection" function will assign this variable 
+        Vec3f intersectionSurfaceNormal; // "intersection" function will assign this variable 
 
 
         for (int i = 0; i < n_x; ++i)
@@ -763,7 +879,11 @@ int main(int argc, char* argv[])
                 std::vector<parser::Sphere>   spheres   = scene.spheres;
 
 
-                float t1,t2,t3;
+                float t_final ,t1,t2,t3;
+
+                char objInfo_0;  
+                int  objInfo_1;  
+                int  objInfo_2;  
 
                 bool sphereIntersection = false;
                 bool triangleIntersection = false;
@@ -776,132 +896,22 @@ int main(int argc, char* argv[])
 
                 //printf("TEST123\n");
 
-                Vec3f sphereShade   = sphereShading(scene, eyeRay, t1,  lightPosition, lightIntensity,  spheres, image, sphereIntersection, index);
 
+                intersectionDetector(scene, eyeRay, t_final, intersectionSurfaceNormal, objInfo_0, objInfo_1, objInfo_2 );
 
-                Vec3f triangleShade = triangleShading(scene, eyeRay, t2,  lightPosition, lightIntensity,  triangles, image, sphereIntersection, triangleIntersection, index, surfaceNormal);
-                
-
-                Vec3f faceShade   =  faceShading(scene, eyeRay, t3,  lightPosition, lightIntensity,  meshes, image, sphereIntersection, triangleIntersection, faceIntersection, index, surfaceNormal);
-
-
-
-
-
-                float min = minFloat(t1,t2,t3);
-
-                //printf("T1: %lf , T2: %lf , T3: %lf \n", t1,t2,t3 );
-                //printf("MIN: %lf  \n" , min);
-
-
-                if (sphereIntersection )
+                if (t_final < 10000.0)
                 {
-                    //printf("Sphere hit\n");
-                    image[index++] = sphereShade.x;
-                    image[index++] = sphereShade.y;
-                    image[index++] = sphereShade.z;
-                } else if (triangleIntersection  )
-                {
-                    //printf("Triangle hit\n");
-
-                    image[index++] = triangleShade.x;
-                    image[index++] = triangleShade.y;
-                    image[index++] = triangleShade.z;
-
-                } else if(faceIntersection ){
-                    //printf("face hit\n");
-
-                    image[index++] = faceShade.x;
-                    image[index++] = faceShade.y;
-                    image[index++] = faceShade.z;
- 
-                }
-                else{
-                    //printf("T1 : %lf \n"  , t1);
-                    //printf("T2 : %lf \n"  , t2);
-                    //printf("T3 : %lf \n"  , t3);
-                    
-
-
-
+                    printf("T_FINAL: %lf \n", t_final);
+                    printf("OBJ_INFO: %c , %d , %d \n", objInfo_0 , objInfo_1 ,objInfo_2);
                 }
 
 
-                //printf("TEST789\n");
-
-
-
-
-                if (!sphereIntersection && !triangleIntersection && !faceIntersection)
-                {
-                    //printf("Not Hıt!!!\n");
-                    //printf("INDEX: %d \n", index);
-
-                    image[index++] = scene.background_color.x;
-                    image[index++] = scene.background_color.y;
-                    image[index++] = scene.background_color.z;
-                } 
-
-                //printf("TEST : %d \n " , index);
-
-
+                shader(image, scene, eyeRay, t_final, objInfo_0, objInfo_1, objInfo_2, index, intersectionSurfaceNormal);
 
 
             }
         }
-    /*
-        printf("TOP LEFT  :\n"    );
-        printf("s_u: %lf \n" , (r - l)*(0 + 0.5)/n_x );
-        printf("s_v: %lf \n" , (t - b)*(0 + 0.5)/n_y );
 
-        printf("BOTTOM RIGHT  :\n"    );
-        printf("s_u: %lf \n" , (r - l)*(n_x-1 + 0.5)/n_x );
-        printf("s_v: %lf \n" , (t - b)*(n_y-1 + 0.5)/n_y );
-
-        printf("NUMBERS: \n");
-        printf("l: %lf \n"  , l);
-        printf("r: %lf \n"  , r);
-        printf("b: %lf \n"  , b);
-        printf("t: %lf \n"  , t);
-        printf("n_x: %d \n"  , n_x);
-        printf("n_y: %d \n"  , n_y);
-
-    */
-        // The code below creates a test pattern and writes
-        // it to a PPM file to demonstrate the usage of the
-        // ppm_write function.
-        /*
-        const RGB BAR_COLOR[8] =
-        {
-            { 255, 255, 255 },  // 100% White
-            { 255, 255,   0 },  // Yellow
-            {   0, 255, 255 },  // Cyan
-            {   0, 255,   0 },  // Green
-            { 255,   0, 255 },  // Magenta
-            { 255,   0,   0 },  // Red
-            {   0,   0, 255 },  // Blue
-            {   0,   0,   0 },  // Black
-        };
-
-        int width = 640, height = 480;
-        int columnWidth = width / 8;
-
-        unsigned char* image = new unsigned char [width * height * 3];
-
-        int i = 0;
-        for (int y = 0; y < height; ++y)
-        {
-            for (int x = 0; x < width; ++x)
-            {
-                int colIdx = x / columnWidth;
-                image[i++] = BAR_COLOR[colIdx][0];
-                image[i++] = BAR_COLOR[colIdx][1];
-                image[i++] = BAR_COLOR[colIdx][2];
-            }
-        }
-
-
-        */
 
 
 
