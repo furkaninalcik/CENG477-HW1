@@ -172,7 +172,7 @@ bool intersection(Ray ray, parser::Face face, parser::Scene scene,  float& t, Ve
 
 
     Vec3f normalVector = crossProduct( v3-v2 , v2-v1);  // BE CAREFULL ABOUT THE ORDER OF THE VERTICES
-    surfaceNormal = normalVector; // TO BE USED BY SHADING PART OF THE CODE
+    surfaceNormal = -normalVector; // TO BE USED BY SHADING PART OF THE CODE
 
     if (dotProduct(normalVector , d)  < 0.000001) // if plane and ray are parallel 
     {
@@ -276,14 +276,6 @@ bool intersection(Ray ray, parser::Face face, parser::Scene scene,  float& t, Ve
 
 
 
-Vec3f mirrorShader(){
-
-
-
-
-
-
-}
 
 
 
@@ -291,32 +283,6 @@ Vec3f mirrorShader(){
 
 
 
-Vec3f triangleShading(parser::Scene& scene, Ray& eyeRay, float& t, Vec3f& lightPosition, Vec3f& lightIntensity,  std::vector<parser::Triangle>& triangles, unsigned char* image , bool& sphereIntersection, bool& triangleIntersection, int& index, Vec3f& surfaceNormal){
-    
-    for (int i = 0; i < triangles.size(); ++i)
-    {
-        if(!sphereIntersection && intersection(eyeRay, triangles[i].indices, scene ,t , surfaceNormal)){
-
-            //printf("Triangle is hit!\n");
-
-            Vec3f pointOnTheTriangle    = eyeRay.e + eyeRay.d*t; 
-
-            Vec3f vectorToLight = lightPosition - pointOnTheTriangle ; 
-
-            // CONTINUE WITH THE TRIANGLE SHADING
-
-
-
-            //image[index++] = 15;
-            //image[index++] = 115;
-            //image[index++] = 70;
-            triangleIntersection = true;
-            return Vec3f(20.0, 17.0, 190.0);
-
-            break;
-        }
-    }
-}
 
 
 bool isUnderShadow(Vec3f& pointOnTheMesh, Vec3f& vectorToLight, parser::Scene& scene, float& t, float& lightDistance, Vec3f& surfaceNormal){
@@ -348,6 +314,46 @@ bool isUnderShadow(Vec3f& pointOnTheMesh, Vec3f& vectorToLight, parser::Scene& s
 
 
 
+}
+
+Vec3f mirrorShader(){
+        /*
+    if (mirrorShadingParams.x != 0 || mirrorShadingParams.y != 0 || mirrorShadingParams.z != 0 )
+    {
+        printf("MIRROR\n");
+
+        float t1,t2,t3;
+
+        sphereSurfaceNormal = sphereSurfaceNormal.normalize();
+
+        eyeRay.d = eyeRay.d.normalize();
+
+        Vec3f mirrorReflactanceRayDirection  = eyeRay.d + (sphereSurfaceNormal*(2*dotProduct(sphereSurfaceNormal,(-eyeRay.d)))) ;
+
+        Ray mirrorReflactanceRay = Ray(pointOnTheSphere, mirrorReflactanceRayDirection );
+
+
+        bool sphereIntersection = false;
+        bool triangleIntersection = false;
+        bool faceIntersection = false;
+
+
+        Vec3f surfaceNormal; // "intersection" function will assign this variable 
+
+
+        Vec3f sphereShade   = sphereShading(scene, eyeRay, t1,  lightPosition, lightIntensity,  spheres, image, sphereIntersection, index);
+
+
+        Vec3f triangleShade = triangleShading(scene, eyeRay, t2,  lightPosition, lightIntensity,  scene.triangles, image, sphereIntersection, triangleIntersection, index, surfaceNormal);
+        
+
+        Vec3f faceShade   =  faceShading(scene, eyeRay, t3,  lightPosition, lightIntensity,  scene.meshes, image, sphereIntersection, triangleIntersection, faceIntersection, index, surfaceNormal);
+
+
+    }
+
+
+    */
 }
 
 
@@ -443,11 +449,17 @@ Vec3f specularShader(Ray& eyeRay, Vec3f vectorToLight, Vec3f intersectionSurface
 
 }
 
-Vec3f faceShading(parser::Scene& scene, Ray& eyeRay, float& t, parser::Face& face, parser::Material& material , Vec3f& intersectionSurfaceNormal){
+
+Vec3f triangleShading(parser::Scene& scene, Ray& eyeRay, float& t, parser::Face& face, parser::Material& material , Vec3f& intersectionSurfaceNormal){
+    
     
     //Vec3f surfaceNormal;
     Vec3f lightPosition  = scene.point_lights[0].position; // for testing 
     Vec3f lightIntensity = scene.point_lights[0].intensity; // for testing 
+
+
+
+    
 
     Vec3f irradiance;
     Vec3f pointOnTheMesh    = eyeRay.e + eyeRay.d*t; 
@@ -457,17 +469,69 @@ Vec3f faceShading(parser::Scene& scene, Ray& eyeRay, float& t, parser::Face& fac
     float lightDistance = sqrt(dotProduct(vectorToLight,vectorToLight));
 
 
+    if(isUnderShadow(pointOnTheMesh, vectorToLight, scene, t , lightDistance, intersectionSurfaceNormal)){
+
+        //image[index++] = 0;
+        //image[index++] = 0;
+        //image[index++] = 0;
+
+
+        //faceShade = Vec3f(0,0,0);
+
+        return Vec3f(0,0,0);
+    }
+
+    Vec3f ambientShading = ambientShader(scene,  material);
+    Vec3f diffuseShading = diffuseShader(scene,  eyeRay, t , material , intersectionSurfaceNormal, pointOnTheMesh, vectorToLight, lightDistance ,  lightIntensity, irradiance);
+    Vec3f specularShading = specularShader(eyeRay, vectorToLight, intersectionSurfaceNormal, material, irradiance);
+
+
+    Vec3f triangleShade = clamp(ambientShading + diffuseShading + specularShading);
+
+
+    return triangleShade;   
+}
+
+Vec3f faceShading(parser::Scene& scene, Ray& eyeRay, float& t, parser::Face& face, parser::Material& material , Vec3f& intersectionSurfaceNormal){
+    
+    //Vec3f surfaceNormal;
+    Vec3f lightPosition  = scene.point_lights[0].position; // for testing 
+    Vec3f lightIntensity = scene.point_lights[0].intensity; // for testing 
+
+
+
+    
+
+    Vec3f irradiance;
+    Vec3f pointOnTheMesh    = eyeRay.e + eyeRay.d*t; 
+
+    Vec3f vectorToLight = (lightPosition - pointOnTheMesh) ;
+
+    float lightDistance = sqrt(dotProduct(vectorToLight,vectorToLight));
+
+/*
+    if(isUnderShadow(pointOnTheMesh, vectorToLight, scene, t , lightDistance, intersectionSurfaceNormal)){
+
+        //image[index++] = 0;
+        //image[index++] = 0;
+        //image[index++] = 0;
+
+
+        //faceShade = Vec3f(0,0,0);
+
+        return Vec3f(0,0,0);
+    }
+*/
     Vec3f ambientShading = ambientShader(scene,  material);
     Vec3f diffuseShading = diffuseShader(scene,  eyeRay, t , material , intersectionSurfaceNormal, pointOnTheMesh, vectorToLight, lightDistance ,  lightIntensity, irradiance);
     Vec3f specularShading = specularShader(eyeRay, vectorToLight, intersectionSurfaceNormal, material, irradiance);
 
 
     Vec3f faceShade = clamp(ambientShading + diffuseShading + specularShading);
+    //Vec3f faceShade = clamp(ambientShading+ diffuseShading );
 
 
-    return faceShade;
-
-                
+    return faceShade;             
 
 }
 
@@ -495,59 +559,9 @@ Vec3f sphereShading(parser::Scene& scene, Ray& eyeRay, float& t, parser::Sphere&
     Vec3f specularShading = specularShader(eyeRay, vectorToLight, intersectionSurfaceNormal, material, irradiance);
 
 
-
-
     //////////////////////////////////// MIRROR SHADING
-
-
     Vec3f mirrorShadingParams = material.mirror; // for RGB values -> between 0 and 1
-
-    /*
-    if (mirrorShadingParams.x != 0 || mirrorShadingParams.y != 0 || mirrorShadingParams.z != 0 )
-    {
-        printf("MIRROR\n");
-
-        float t1,t2,t3;
-
-        sphereSurfaceNormal = sphereSurfaceNormal.normalize();
-
-        eyeRay.d = eyeRay.d.normalize();
-
-        Vec3f mirrorReflactanceRayDirection  = eyeRay.d + (sphereSurfaceNormal*(2*dotProduct(sphereSurfaceNormal,(-eyeRay.d)))) ;
-
-        Ray mirrorReflactanceRay = Ray(pointOnTheSphere, mirrorReflactanceRayDirection );
-
-
-        bool sphereIntersection = false;
-        bool triangleIntersection = false;
-        bool faceIntersection = false;
-
-
-        Vec3f surfaceNormal; // "intersection" function will assign this variable 
-
-
-        Vec3f sphereShade   = sphereShading(scene, eyeRay, t1,  lightPosition, lightIntensity,  spheres, image, sphereIntersection, index);
-
-
-        Vec3f triangleShade = triangleShading(scene, eyeRay, t2,  lightPosition, lightIntensity,  scene.triangles, image, sphereIntersection, triangleIntersection, index, surfaceNormal);
-        
-
-        Vec3f faceShade   =  faceShading(scene, eyeRay, t3,  lightPosition, lightIntensity,  scene.meshes, image, sphereIntersection, triangleIntersection, faceIntersection, index, surfaceNormal);
-
-
-    }
-
-
-    */
-
-
-
-
     //////////////////////////////////// MIRROR SHADING
-
-
-
-
 
     Vec3f sphereShade = clamp(ambientShading + diffuseShading + specularShading);
 
@@ -558,8 +572,6 @@ Vec3f sphereShading(parser::Scene& scene, Ray& eyeRay, float& t, parser::Sphere&
     //sphereIntersection = true;
 
     return sphereShade;
-
-
   
 }
 
@@ -666,8 +678,13 @@ Vec3f shader(unsigned char* image, parser::Scene& scene, Ray& eyeRay, float& t, 
     {
         printf("Triangle SHADE! \n");
 
-        //Vec3f triangleShade = triangleShading(scene, eyeRay, t2,  lightPosition, lightIntensity,  triangles, image, sphereIntersection, triangleIntersection, index, surfaceNormal);
+        parser::Face face = scene.triangles[objInfo_1].indices;
 
+        parser::Material material = scene.materials[scene.triangles[objInfo_1].material_id-1];        
+
+        Vec3f triangleShade = faceShading(scene, eyeRay, t, face, material, intersectionSurfaceNormal );
+        printf(" Triangle Shade: %lf , %lf , %lf \n" , triangleShade.x, triangleShade.y, triangleShade.z);
+        printf("OBJ_INFO_1: %d\n" , objInfo_1);
     }
     else if (objInfo_0 == 'f')
     {
@@ -678,7 +695,9 @@ Vec3f shader(unsigned char* image, parser::Scene& scene, Ray& eyeRay, float& t, 
         parser::Material material = scene.materials[scene.meshes[objInfo_1].material_id-1];        
     
         faceShade   =  faceShading(scene, eyeRay, t, face, material, intersectionSurfaceNormal  );
-
+        printf(" Face Shade: %lf , %lf , %lf \n" , faceShade.x, faceShade.y, faceShade.z);
+        printf("OBJ_INFO_1: %d\n" , objInfo_1);
+        printf("OBJ_INFO_2: %d\n" , objInfo_2);
     } else{
 
     }
@@ -701,7 +720,7 @@ Vec3f shader(unsigned char* image, parser::Scene& scene, Ray& eyeRay, float& t, 
         image[index++] = sphereShade.z;
     } else if (objInfo_0 == 't'  )
     {
-        //printf("Triangle hit\n");
+        printf("Triangle hit\n");
 
         image[index++] = triangleShade.x;
         image[index++] = triangleShade.y;
