@@ -300,7 +300,9 @@ bool isUnderShadow(Vec3f& pointOnTheMesh, Vec3f& vectorToLight, parser::Scene& s
 
         if (intersection(shadowRay, scene.spheres[i], center ,t_to_sphere , sphereSurfaceNormal)){
 
-            Vec3f pointToObstacle = shadowRay.d*t_to_sphere;
+            Vec3f point_of_Obstacle = pointOnTheMesh + shadowRay.d*t_to_sphere;
+            Vec3f pointToObstacle = Vec3f(scene.point_lights[0].position) - point_of_Obstacle;
+
 
             if (sqrt(dotProduct(pointToObstacle,pointToObstacle)) < lightDistance)
             {
@@ -509,8 +511,17 @@ Vec3f faceShading(parser::Scene& scene, Ray& eyeRay, float& t, parser::Face& fac
 
     float lightDistance = sqrt(dotProduct(vectorToLight,vectorToLight));
 
-/*
-    if(isUnderShadow(pointOnTheMesh, vectorToLight, scene, t , lightDistance, intersectionSurfaceNormal)){
+
+    Vec3f ambientShading = ambientShader(scene,  material);
+
+    intersectionSurfaceNormal = intersectionSurfaceNormal.normalize();
+
+
+    Vec3f epsilonMovedPointOnTheMesh = pointOnTheMesh + (intersectionSurfaceNormal * scene.shadow_ray_epsilon );
+
+    //vectorToLight = lightPosition - epsilonMovedPointOnTheMesh;
+
+    if(isUnderShadow(epsilonMovedPointOnTheMesh, vectorToLight, scene, t , lightDistance, intersectionSurfaceNormal)){
 
         //image[index++] = 0;
         //image[index++] = 0;
@@ -519,10 +530,10 @@ Vec3f faceShading(parser::Scene& scene, Ray& eyeRay, float& t, parser::Face& fac
 
         //faceShade = Vec3f(0,0,0);
 
-        return Vec3f(0,0,0);
+        return clamp(ambientShading);
     }
-*/
-    Vec3f ambientShading = ambientShader(scene,  material);
+
+
     Vec3f diffuseShading = diffuseShader(scene,  eyeRay, t , material , intersectionSurfaceNormal, pointOnTheMesh, vectorToLight, lightDistance ,  lightIntensity, irradiance);
     Vec3f specularShading = specularShader(eyeRay, vectorToLight, intersectionSurfaceNormal, material, irradiance);
 
@@ -553,8 +564,26 @@ Vec3f sphereShading(parser::Scene& scene, Ray& eyeRay, float& t, parser::Sphere&
 
     float lightDistance = sqrt(dotProduct(vectorToLight,vectorToLight));
 
-
     Vec3f ambientShading = ambientShader(scene,  material);
+
+    intersectionSurfaceNormal = intersectionSurfaceNormal.normalize();
+
+    Vec3f epsilonMovedPointOnTheSphere = pointOnTheSphere + (intersectionSurfaceNormal * scene.shadow_ray_epsilon );
+
+    //vectorToLight = lightPosition - epsilonMovedPointOnTheSphere;
+
+    if(isUnderShadow(epsilonMovedPointOnTheSphere, vectorToLight, scene, t , lightDistance, intersectionSurfaceNormal)){
+
+        //image[index++] = 0;
+        //image[index++] = 0;
+        //image[index++] = 0;
+
+
+        //faceShade = Vec3f(0,0,0);
+
+        return clamp(ambientShading);
+    }
+
     Vec3f diffuseShading = diffuseShader(scene,  eyeRay, t , material , intersectionSurfaceNormal, pointOnTheSphere, vectorToLight, lightDistance ,  lightIntensity, irradiance);
     Vec3f specularShading = specularShader(eyeRay, vectorToLight, intersectionSurfaceNormal, material, irradiance);
 
@@ -682,7 +711,7 @@ Vec3f shader(unsigned char* image, parser::Scene& scene, Ray& eyeRay, float& t, 
 
         parser::Material material = scene.materials[scene.triangles[objInfo_1].material_id-1];        
 
-        Vec3f triangleShade = faceShading(scene, eyeRay, t, face, material, intersectionSurfaceNormal );
+        triangleShade = faceShading(scene, eyeRay, t, face, material, intersectionSurfaceNormal );
         printf(" Triangle Shade: %lf , %lf , %lf \n" , triangleShade.x, triangleShade.y, triangleShade.z);
         printf("OBJ_INFO_1: %d\n" , objInfo_1);
     }
@@ -695,9 +724,9 @@ Vec3f shader(unsigned char* image, parser::Scene& scene, Ray& eyeRay, float& t, 
         parser::Material material = scene.materials[scene.meshes[objInfo_1].material_id-1];        
     
         faceShade   =  faceShading(scene, eyeRay, t, face, material, intersectionSurfaceNormal  );
-        printf(" Face Shade: %lf , %lf , %lf \n" , faceShade.x, faceShade.y, faceShade.z);
-        printf("OBJ_INFO_1: %d\n" , objInfo_1);
-        printf("OBJ_INFO_2: %d\n" , objInfo_2);
+        //printf(" Face Shade: %lf , %lf , %lf \n" , faceShade.x, faceShade.y, faceShade.z);
+        //printf("OBJ_INFO_1: %d\n" , objInfo_1);
+        //printf("OBJ_INFO_2: %d\n" , objInfo_2);
     } else{
 
     }
